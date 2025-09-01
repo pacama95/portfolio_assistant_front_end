@@ -23,7 +23,7 @@ class ApiError extends Error {
 }
 
 async function apiRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-  const url = `${BASE_URL}${endpoint}`;
+  let url = `${BASE_URL}${endpoint}`;
   
   const response = await fetch(url, {
     headers: {
