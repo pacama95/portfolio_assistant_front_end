@@ -1,0 +1,9 @@
+version: '3.8'
+
+services:
+  portfolio-web:
+    build: .
+    ports:
+      - "8080:80"
+    environment:
+      - NODE_ENV=production
