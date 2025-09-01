@@ -72,3 +72,16 @@ export interface TransactionSearchParams {
   ticker?: string;
   type?: TransactionType;
 }
+
+export interface DividendResponse {
+  symbol: string;
+  micCode: string;
+  exchange: string;
+  exDate: string;
+  amount: number;
+}
+
+export interface DividendSearchParams {
+  startDate: string;
+  endDate: string;
+}

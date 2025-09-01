@@ -6,6 +6,8 @@ import type {
   UpdateTransactionRequest,
   UpdateMarketDataRequest,
   TransactionSearchParams,
+  DividendResponse,
+  DividendSearchParams,
 } from '../types/api';
 
 const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8081/api';
@@ -126,6 +128,23 @@ export const portfolioApi = {
     
   getTransactionCountByTicker: (ticker: string): Promise<number> =>
     apiRequest(`/transactions/count/${ticker}`),
+
+  // Dividend endpoints
+  getPortfolioDividends: (params: DividendSearchParams): Promise<Record<string, DividendResponse[]>> => {
+    const searchParams = new URLSearchParams();
+    searchParams.append('startDate', params.startDate);
+    searchParams.append('endDate', params.endDate);
+    
+    return apiRequest(`/dividends/portfolio?${searchParams.toString()}`);
+  },
+    
+  getDividendsByTicker: (ticker: string, params: DividendSearchParams): Promise<DividendResponse[]> => {
+    const searchParams = new URLSearchParams();
+    searchParams.append('startDate', params.startDate);
+    searchParams.append('endDate', params.endDate);
+    
+    return apiRequest(`/dividends/ticker/${ticker}?${searchParams.toString()}`);
+  },
 };
 
 export { ApiError };

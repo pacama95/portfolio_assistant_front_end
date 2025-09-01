@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { TrendingUp, Receipt } from 'lucide-react';
+import { TrendingUp, Receipt, DollarSign } from 'lucide-react';
 
 interface NavItem {
   to: string;
@@ -17,6 +17,11 @@ const navItems: NavItem[] = [
     to: '/transactions',
     label: 'Transactions',
     icon: Receipt,
+  },
+  {
+    to: '/dividends',
+    label: 'Dividends',
+    icon: DollarSign,
   },
 ];
 
