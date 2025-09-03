@@ -51,6 +51,29 @@ interface ChartData {
   percentage: number;
 }
 
+const ChartLegend = ({ data, colors }: { data: ChartData[], colors: string[] }) => {
+  return (
+    <div className="space-y-2">
+      <h3 className="text-sm font-medium text-gray-700 mb-3">Allocation</h3>
+      <div className="space-y-2 max-h-48 overflow-y-auto">
+        {data.map((item, index) => (
+          <div key={item.name} className="flex items-center space-x-3 text-sm">
+            <div 
+              className="w-3 h-3 rounded-full flex-shrink-0"
+              style={{ backgroundColor: colors[index] }}
+            />
+            <div className="flex items-center space-x-2 min-w-0">
+              <span className="font-medium text-gray-900 truncate">{item.ticker}</span>
+              <span className="font-medium text-gray-900 whitespace-nowrap">{item.percentage.toFixed(1)}%</span>
+              <span className="text-xs text-gray-500 whitespace-nowrap">{formatCurrency(item.value)}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
 const PortfolioChart = () => {
   const { data: positions, isLoading } = useActivePositions();
 
@@ -83,32 +106,39 @@ const PortfolioChart = () => {
   const colors = generateChartColors(chartData.length);
 
   return (
-    <div className="h-64 w-full">
-      <ResponsiveContainer width="100%" height="100%">
-        <RechartsPieChart>
-          <Pie
-            data={chartData}
-            cx="50%"
-            cy="50%"
-            innerRadius={60}
-            outerRadius={100}
-            paddingAngle={2}
-            dataKey="value"
-            label={({ ticker, percentage }) => `${ticker} ${percentage.toFixed(1)}%`}
-          >
-            {chartData.map((_, index) => (
-              <Cell key={`cell-${index}`} fill={colors[index]} />
-            ))}
-          </Pie>
-          <Tooltip 
-            formatter={(value: number, _name: string, props: any) => [
-              formatCurrency(value),
-              props.payload.ticker
-            ]}
-            labelFormatter={() => ''}
-          />
-        </RechartsPieChart>
-      </ResponsiveContainer>
+    <div className="flex flex-col lg:flex-row items-start space-y-4 lg:space-y-0 lg:space-x-6">
+      {/* Chart */}
+      <div className="w-full lg:w-2/3 h-64">
+        <ResponsiveContainer width="100%" height="100%">
+          <RechartsPieChart>
+            <Pie
+              data={chartData}
+              cx="50%"
+              cy="50%"
+              innerRadius={50}
+              outerRadius={90}
+              paddingAngle={2}
+              dataKey="value"
+            >
+              {chartData.map((_, index) => (
+                <Cell key={`cell-${index}`} fill={colors[index]} />
+              ))}
+            </Pie>
+            <Tooltip 
+              formatter={(value: number, _name: string, props: any) => [
+                formatCurrency(value),
+                props.payload.ticker
+              ]}
+              labelFormatter={() => ''}
+            />
+          </RechartsPieChart>
+        </ResponsiveContainer>
+      </div>
+      
+      {/* Legend */}
+      <div className="w-full lg:w-1/3">
+        <ChartLegend data={chartData} colors={colors} />
+      </div>
     </div>
   );
 };
