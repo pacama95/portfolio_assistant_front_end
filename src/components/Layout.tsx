@@ -1,6 +1,6 @@
 import { type ReactNode } from 'react';
 import { TrendingUp } from 'lucide-react';
-import { Navigation } from './Navigation';
+import { DesktopNavigation, MobileNavigation } from './Navigation';
 
 interface LayoutProps {
   children: ReactNode;
@@ -18,18 +18,21 @@ export const Layout = ({ children }: LayoutProps) => {
               <h1 className="text-lg sm:text-xl font-bold text-gray-900">Portfolio Assistant</h1>
             </div>
             
-            {/* Navigation */}
+            {/* Desktop Navigation - only shown on md+ screens */}
             <div className="flex items-center">
-              <Navigation />
+              <DesktopNavigation />
             </div>
           </div>
         </div>
       </header>
 
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      {/* Main Content - add bottom padding on mobile for bottom navigation */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-24 md:pb-8">
         {children}
       </main>
+
+      {/* Mobile Bottom Navigation - only shown on screens smaller than md */}
+      <MobileNavigation />
     </div>
   );
 };
