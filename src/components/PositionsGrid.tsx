@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { TrendingUp, Grid3X3, AlertCircle, ArrowUpDown, ChevronDown } from 'lucide-react';
+import { TrendingUp, Grid3X3, AlertCircle, ArrowUpDown, ChevronDown, Search, X } from 'lucide-react';
 import { PositionCard } from './PositionCard';
 import { useActivePositions } from '../hooks/useApi';
 import type { PositionResponse } from '../types/api';
@@ -68,6 +68,7 @@ export const PositionsGrid = () => {
   const { data: positions, isLoading, error } = useActivePositions();
   const [sortBy, setSortBy] = useState<string>('marketValue-desc');
   const [showSortDropdown, setShowSortDropdown] = useState(false);
+  const [searchTerm, setSearchTerm] = useState<string>('');
   const navigate = useNavigate();
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -152,23 +153,27 @@ export const PositionsGrid = () => {
     );
   }
 
-  // Sort positions based on selected option
-  const sortedPositions = [...positions].sort(currentSortOption.sortFn);
+  // Filter positions based on search term, then sort
+  const filteredPositions = positions.filter(position => 
+    position.ticker.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+  const sortedAndFilteredPositions = [...filteredPositions].sort(currentSortOption.sortFn);
 
   return (
     <div className="bg-white rounded-lg border border-gray-200 p-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 space-y-4 sm:space-y-0">
-        <div className="flex items-center">
-          <Grid3X3 className="h-5 w-5 text-blue-600 mr-2" />
-          <h2 className="text-lg font-semibold text-gray-900">Position Details</h2>
-          <span className="ml-3 text-sm text-gray-500">
-            {positions.length} position{positions.length !== 1 ? 's' : ''}
-          </span>
-        </div>
-        
-        {/* Sort Controls */}
-        <div className="flex items-center space-x-3">
+      <div className="mb-6 space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
+          <div className="flex items-center">
+            <Grid3X3 className="h-5 w-5 text-blue-600 mr-2" />
+            <h2 className="text-lg font-semibold text-gray-900">Position Details</h2>
+            <span className="ml-3 text-sm text-gray-500">
+              {filteredPositions.length} of {positions.length} position{positions.length !== 1 ? 's' : ''}
+            </span>
+          </div>
+          
+          {/* Sort Controls */}
+          <div className="flex items-center space-x-3">
           <div className="relative" ref={dropdownRef}>
             <button
               onClick={() => setShowSortDropdown(!showSortDropdown)}
@@ -199,19 +204,59 @@ export const PositionsGrid = () => {
               </div>
             )}
           </div>
+          </div>
+        </div>
+        
+        {/* Search Box */}
+        <div className="relative max-w-md">
+          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <Search className="h-4 w-4 text-gray-400" />
+          </div>
+          <input
+            type="text"
+            placeholder="Search positions by ticker..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="block w-full pl-10 pr-10 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-sm"
+          />
+          {searchTerm && (
+            <button
+              onClick={() => setSearchTerm('')}
+              className="absolute inset-y-0 right-0 pr-3 flex items-center"
+            >
+              <X className="h-4 w-4 text-gray-400 hover:text-gray-600" />
+            </button>
+          )}
         </div>
       </div>
 
       {/* Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-        {sortedPositions.map((position) => (
-          <PositionCard
-            key={position.id}
-            ticker={position.ticker}
-            onViewTransactions={handleViewTransactions}
-          />
-        ))}
-      </div>
+      {sortedAndFilteredPositions.length === 0 && searchTerm ? (
+        <div className="text-center py-12">
+          <Search className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+          <h3 className="text-lg font-medium text-gray-900 mb-1">No positions found</h3>
+          <p className="text-sm text-gray-500 mb-4">
+            No positions match "{searchTerm}". Try a different search term.
+          </p>
+          <button
+            onClick={() => setSearchTerm('')}
+            className="inline-flex items-center px-3 py-2 text-sm font-medium text-blue-600 hover:text-blue-500"
+          >
+            <X className="h-4 w-4 mr-1" />
+            Clear search
+          </button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+          {sortedAndFilteredPositions.map((position) => (
+            <PositionCard
+              key={position.id}
+              ticker={position.ticker}
+              onViewTransactions={handleViewTransactions}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 };
