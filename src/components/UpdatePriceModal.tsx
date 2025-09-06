@@ -64,7 +64,7 @@ export const UpdatePriceModal = ({ isOpen, ticker, onClose }: UpdatePriceModalPr
 
   if (positionLoading) {
     return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-2 pt-20 pb-20 sm:p-4 sm:pt-4 sm:pb-4 z-[9999]">
         <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
           <div className="animate-pulse space-y-4">
             <div className="h-6 bg-gray-200 rounded w-3/4"></div>
@@ -78,7 +78,7 @@ export const UpdatePriceModal = ({ isOpen, ticker, onClose }: UpdatePriceModalPr
 
   if (!position) {
     return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-2 pt-20 pb-20 sm:p-4 sm:pt-4 sm:pb-4 z-[9999]">
         <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
           <div className="text-center">
             <p className="text-red-600">Position not found</p>
@@ -90,7 +90,7 @@ export const UpdatePriceModal = ({ isOpen, ticker, onClose }: UpdatePriceModalPr
   }
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-2 pt-20 pb-20 sm:p-4 sm:pt-4 sm:pb-4 z-[9999]">
       <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
