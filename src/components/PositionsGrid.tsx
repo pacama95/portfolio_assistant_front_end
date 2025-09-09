@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { TrendingUp, Grid3X3, AlertCircle, ArrowUpDown, ChevronDown, Search, X } from 'lucide-react';
 import { PositionCard } from './PositionCard';
 import { useActivePositions } from '../hooks/useApi';
+import { useLogoPreload } from '../hooks/useLogoPreload';
 import type { PositionResponse } from '../types/api';
 
 type SortOption = {
@@ -71,6 +72,10 @@ export const PositionsGrid = () => {
   const [searchTerm, setSearchTerm] = useState<string>('');
   const navigate = useNavigate();
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Preload logos for better performance
+  const tickers = positions?.map(position => position.ticker) || [];
+  useLogoPreload(tickers);
 
   // Close dropdown when clicking outside
   useEffect(() => {

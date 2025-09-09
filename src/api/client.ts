@@ -46,16 +46,123 @@ async function apiRequest<T>(endpoint: string, options: RequestInit = {}): Promi
   return response.json();
 }
 
+interface CachedLogo {
+  url: string;
+  timestamp: number;
+  ticker: string;
+}
+
+class LogoCache {
+  private cache = new Map<string, CachedLogo>();
+  private readonly TTL = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+  private readonly MAX_CACHE_SIZE = 100; // Limit cache size to prevent memory issues
+
+  private isExpired(cachedLogo: CachedLogo): boolean {
+    return Date.now() - cachedLogo.timestamp > this.TTL;
+  }
+
+  private evictExpired(): void {
+    const now = Date.now();
+    for (const [ticker, cachedLogo] of this.cache.entries()) {
+      if (now - cachedLogo.timestamp > this.TTL) {
+        URL.revokeObjectURL(cachedLogo.url);
+        this.cache.delete(ticker);
+      }
+    }
+  }
+
+  private evictOldest(): void {
+    if (this.cache.size >= this.MAX_CACHE_SIZE) {
+      // Find and remove the oldest entry
+      let oldestTicker: string | null = null;
+      let oldestTimestamp = Date.now();
+
+      for (const [ticker, cachedLogo] of this.cache.entries()) {
+        if (cachedLogo.timestamp < oldestTimestamp) {
+          oldestTimestamp = cachedLogo.timestamp;
+          oldestTicker = ticker;
+        }
+      }
+
+      if (oldestTicker) {
+        const oldestLogo = this.cache.get(oldestTicker);
+        if (oldestLogo) {
+          URL.revokeObjectURL(oldestLogo.url);
+          this.cache.delete(oldestTicker);
+        }
+      }
+    }
+  }
+
+  get(ticker: string): string | null {
+    const cachedLogo = this.cache.get(ticker.toUpperCase());
+    if (cachedLogo && !this.isExpired(cachedLogo)) {
+      return cachedLogo.url;
+    }
+    
+    // Clean up expired entry if it exists
+    if (cachedLogo && this.isExpired(cachedLogo)) {
+      URL.revokeObjectURL(cachedLogo.url);
+      this.cache.delete(ticker.toUpperCase());
+    }
+    
+    return null;
+  }
+
+  set(ticker: string, url: string): void {
+    // Clean up expired entries periodically
+    this.evictExpired();
+    
+    // Ensure we don't exceed max cache size
+    this.evictOldest();
+
+    this.cache.set(ticker.toUpperCase(), {
+      url,
+      timestamp: Date.now(),
+      ticker: ticker.toUpperCase()
+    });
+  }
+
+  clear(): void {
+    // Clean up all blob URLs before clearing
+    for (const cachedLogo of this.cache.values()) {
+      URL.revokeObjectURL(cachedLogo.url);
+    }
+    this.cache.clear();
+  }
+
+  getCacheStats(): { size: number; tickers: string[] } {
+    return {
+      size: this.cache.size,
+      tickers: Array.from(this.cache.keys())
+    };
+  }
+}
+
+// Create a singleton cache instance
+const logoCache = new LogoCache();
+
 async function fetchStockLogo(ticker: string): Promise<string | null> {
+  // Check cache first
+  const cachedUrl = logoCache.get(ticker);
+  if (cachedUrl) {
+    return cachedUrl;
+  }
+
   try {
-    const response = await fetch(`${LOGO_API_BASE_URL}/api/v1/logos/external/${ticker}`);
+    const response = await fetch(`${LOGO_API_BASE_URL}/api/v1/logos/external/${ticker.toUpperCase()}`);
     
     if (!response.ok) {
       return null;
     }
     
     const blob = await response.blob();
-    return URL.createObjectURL(blob);
+    const url = URL.createObjectURL(blob);
+    
+    // Cache the result
+    logoCache.set(ticker, url);
+    
+    return url;
   } catch (error) {
     console.error(`Failed to fetch logo for ${ticker}:`, error);
     return null;
@@ -64,6 +171,8 @@ async function fetchStockLogo(ticker: string): Promise<string | null> {
 
 export const logoApi = {
   getStockLogo: fetchStockLogo,
+  clearCache: () => logoCache.clear(),
+  getCacheStats: () => logoCache.getCacheStats(),
 };
 
 export const portfolioApi = {

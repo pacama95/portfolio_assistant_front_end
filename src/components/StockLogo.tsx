@@ -36,6 +36,7 @@ export const StockLogo = ({
     const loadLogo = async () => {
       setIsLoading(true);
       setHasError(false);
+      setLogoUrl(null);
       
       try {
         const url = await logoApi.getStockLogo(ticker);
@@ -59,21 +60,9 @@ export const StockLogo = ({
 
     return () => {
       isMounted = false;
-      // Clean up blob URL if it exists
-      if (logoUrl) {
-        URL.revokeObjectURL(logoUrl);
-      }
+      // Note: We don't revoke blob URLs here anymore since the cache manages their lifecycle
     };
   }, [ticker]);
-
-  // Clean up blob URL when component unmounts
-  useEffect(() => {
-    return () => {
-      if (logoUrl) {
-        URL.revokeObjectURL(logoUrl);
-      }
-    };
-  }, [logoUrl]);
 
   if (isLoading) {
     return (
@@ -97,10 +86,7 @@ export const StockLogo = ({
       className={`${sizeClasses[size]} rounded-full object-cover ${className}`}
       onError={() => {
         setHasError(true);
-        if (logoUrl) {
-          URL.revokeObjectURL(logoUrl);
-          setLogoUrl(null);
-        }
+        setLogoUrl(null);
       }}
     />
   );

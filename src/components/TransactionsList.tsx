@@ -4,6 +4,7 @@ import { formatCurrency, formatNumber } from '../utils/format';
 import type { TransactionResponse, TransactionType } from '../types/api';
 import type { TransactionFilters } from './TransactionFilters';
 import { StockLogo } from './StockLogo';
+import { useLogoPreload } from '../hooks/useLogoPreload';
 
 interface TransactionsListProps {
   searchQuery?: string;
@@ -28,6 +29,10 @@ const getTransactionTypeColor = (type: TransactionType): string => {
 
 export const TransactionsList = ({ searchQuery = '', filters = {}, onEdit, onDelete }: TransactionsListProps) => {
   const { data: transactions, isLoading, error } = useAllTransactions();
+
+  // Preload logos for better performance - get unique tickers
+  const uniqueTickers = Array.from(new Set(transactions?.map(t => t.ticker) || []));
+  useLogoPreload(uniqueTickers);
 
   if (isLoading) {
     return (

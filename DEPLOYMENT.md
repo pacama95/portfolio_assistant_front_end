@@ -206,6 +206,7 @@ npm install @sentry/react
 1. **Blank page after deployment**
    - Check console for API connection errors
    - Verify `VITE_API_URL` is set correctly
+   - Verify `VITE_LOGO_API_URL` is set correctly
 
 2. **404 on refresh**
    - Ensure your hosting platform supports SPA routing
