@@ -3,6 +3,7 @@ import { useAllTransactions } from '../hooks/useApi';
 import { formatCurrency, formatNumber } from '../utils/format';
 import type { TransactionResponse, TransactionType } from '../types/api';
 import type { TransactionFilters } from './TransactionFilters';
+import { StockLogo } from './StockLogo';
 
 interface TransactionsListProps {
   searchQuery?: string;
@@ -24,18 +25,6 @@ const getTransactionTypeColor = (type: TransactionType): string => {
   }
 };
 
-const getTransactionIcon = (type: TransactionType): string => {
-  switch (type) {
-    case 'BUY':
-      return '↗️';
-    case 'SELL':
-      return '↘️';
-    case 'DIVIDEND':
-      return '💰';
-    default:
-      return '📊';
-  }
-};
 
 export const TransactionsList = ({ searchQuery = '', filters = {}, onEdit, onDelete }: TransactionsListProps) => {
   const { data: transactions, isLoading, error } = useAllTransactions();
@@ -182,7 +171,9 @@ export const TransactionsList = ({ searchQuery = '', filters = {}, onEdit, onDel
               <tr key={transaction.id} className="hover:bg-gray-50 transition-colors">
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="flex items-center">
-                    <span className="text-lg mr-2">{getTransactionIcon(transaction.transactionType)}</span>
+                    <div className="mr-3">
+                      <StockLogo ticker={transaction.ticker} size="sm" />
+                    </div>
                     <div>
                       <div className="text-sm font-medium text-gray-900">{transaction.ticker}</div>
                       <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-md border ${getTransactionTypeColor(transaction.transactionType)}`}>
@@ -247,7 +238,9 @@ export const TransactionsList = ({ searchQuery = '', filters = {}, onEdit, onDel
             <div className="flex items-start justify-between">
               <div className="flex-1">
                 <div className="flex items-center mb-2">
-                  <span className="text-lg mr-2">{getTransactionIcon(transaction.transactionType)}</span>
+                  <div className="mr-3">
+                    <StockLogo ticker={transaction.ticker} size="sm" />
+                  </div>
                   <h3 className="text-lg font-medium text-gray-900">{transaction.ticker}</h3>
                   <span className={`ml-2 inline-flex px-2 py-1 text-xs font-medium rounded-md border ${getTransactionTypeColor(transaction.transactionType)}`}>
                     {transaction.transactionType}

@@ -11,6 +11,7 @@ import type {
 } from '../types/api';
 
 const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8081/api';
+const LOGO_API_BASE_URL = import.meta.env.VITE_LOGO_API_URL || 'http://0.0.0.0:8085';
 
 class ApiError extends Error {
   public status: number;
@@ -44,6 +45,26 @@ async function apiRequest<T>(endpoint: string, options: RequestInit = {}): Promi
 
   return response.json();
 }
+
+async function fetchStockLogo(ticker: string): Promise<string | null> {
+  try {
+    const response = await fetch(`${LOGO_API_BASE_URL}/api/v1/logos/external/${ticker}`);
+    
+    if (!response.ok) {
+      return null;
+    }
+    
+    const blob = await response.blob();
+    return URL.createObjectURL(blob);
+  } catch (error) {
+    console.error(`Failed to fetch logo for ${ticker}:`, error);
+    return null;
+  }
+}
+
+export const logoApi = {
+  getStockLogo: fetchStockLogo,
+};
 
 export const portfolioApi = {
   // Portfolio endpoints

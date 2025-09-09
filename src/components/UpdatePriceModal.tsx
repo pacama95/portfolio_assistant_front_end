@@ -5,6 +5,7 @@ import { usePositionByTicker } from '../hooks/useApi';
 import { formatCurrency } from '../utils/format';
 import { portfolioApi } from '../api/client';
 import { useQueryClient } from '@tanstack/react-query';
+import { StockLogo } from './StockLogo';
 
 interface UpdatePriceModalProps {
   isOpen: boolean;
@@ -112,9 +113,12 @@ export const UpdatePriceModal = ({ isOpen, ticker, onClose }: UpdatePriceModalPr
         {/* Current Position Info */}
         <div className="p-6 bg-gray-50 border-b border-gray-200">
           <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-900">{ticker}</p>
-              <p className="text-xs text-gray-500">{position.totalQuantity} shares</p>
+            <div className="flex items-center space-x-3">
+              <StockLogo ticker={ticker} size="sm" />
+              <div>
+                <p className="text-sm font-medium text-gray-900">{ticker}</p>
+                <p className="text-xs text-gray-500">{position.totalQuantity} shares</p>
+              </div>
             </div>
             <div className="text-right">
               <p className="text-lg font-bold text-gray-900">{formatCurrency(position.currentPrice)}</p>

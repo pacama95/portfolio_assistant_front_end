@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { formatCurrency, formatNumber, getGainLossColor, getGainLossBgColor, getGainLossSign } from '../utils/format';
 import { usePositionByTicker } from '../hooks/useApi';
 import { portfolioApi } from '../api/client';
+import { StockLogo } from './StockLogo';
 
 interface PositionCardProps {
   ticker: string;
@@ -77,14 +78,16 @@ export const PositionCard = ({ ticker, onViewTransactions }: PositionCardProps) 
       }`}>
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            {/* Company Icon Placeholder */}
-            <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold ${
-              isPositive ? 'bg-profit-600' : 
-              isNeutral ? 'bg-gray-600' : 
-              'bg-loss-600'
-            }`}>
-              {position.ticker.charAt(0)}
-            </div>
+            {/* Stock Logo */}
+            <StockLogo 
+              ticker={position.ticker}
+              size="md"
+              fallbackClassName={
+                isPositive ? 'bg-profit-600' : 
+                isNeutral ? 'bg-gray-600' : 
+                'bg-loss-600'
+              }
+            />
             <div>
               <h3 className="text-lg font-bold text-gray-900">{position.ticker}</h3>
               <p className="text-sm text-gray-600">{formatNumber(position.totalQuantity, 4)} shares</p>
