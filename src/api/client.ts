@@ -8,10 +8,13 @@ import type {
   TransactionSearchParams,
   DividendResponse,
   DividendSearchParams,
+  TickerSuggestionsResponse,
+  TickerSuggestionsParams,
 } from '../types/api';
 
 const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8081/api';
 const LOGO_API_BASE_URL = import.meta.env.VITE_LOGO_API_URL || 'http://0.0.0.0:8085';
+const SUGGESTIONS_API_BASE_URL = import.meta.env.VITE_SUGGESTIONS_API_URL || 'http://localhost:8090';
 
 class ApiError extends Error {
   public status: number;
@@ -173,6 +176,31 @@ export const logoApi = {
   getStockLogo: fetchStockLogo,
   clearCache: () => logoCache.clear(),
   getCacheStats: () => logoCache.getCacheStats(),
+};
+
+// Ticker suggestions API function
+async function fetchTickerSuggestions(params: TickerSuggestionsParams): Promise<TickerSuggestionsResponse> {
+  const searchParams = new URLSearchParams();
+  searchParams.append('q', params.q);
+  if (params.limit) {
+    searchParams.append('limit', params.limit.toString());
+  }
+
+  const response = await fetch(`${SUGGESTIONS_API_BASE_URL}/suggestions?${searchParams.toString()}`, {
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    throw new ApiError(response.status, `HTTP ${response.status}: ${response.statusText}`);
+  }
+
+  return response.json();
+}
+
+export const suggestionsApi = {
+  getTickerSuggestions: fetchTickerSuggestions,
 };
 
 export const portfolioApi = {

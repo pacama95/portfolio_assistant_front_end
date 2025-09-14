@@ -85,3 +85,25 @@ export interface DividendSearchParams {
   startDate: string;
   endDate: string;
 }
+
+// Ticker Suggestions API Types
+export interface TickerSuggestion {
+  symbol: string;
+  name: string;
+  exchange: string;
+  type: string;
+  region: string;
+  marketCap: string;
+  currency: string;
+}
+
+export interface TickerSuggestionsResponse {
+  suggestions: TickerSuggestion[];
+  query: string;
+  count: number;
+}
+
+export interface TickerSuggestionsParams {
+  q: string;
+  limit?: number;
+}

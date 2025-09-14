@@ -1,7 +1,8 @@
 import { useForm } from 'react-hook-form';
 import { useEffect } from 'react';
 import { X, DollarSign, FileText } from 'lucide-react';
-import type { CreateTransactionRequest, TransactionResponse, TransactionType, Currency } from '../types/api';
+import type { CreateTransactionRequest, TransactionResponse, TransactionType, Currency, TickerSuggestion } from '../types/api';
+import { TickerAutocomplete } from './TickerAutocomplete';
 
 interface AddTransactionModalProps {
   isOpen: boolean;
@@ -76,6 +77,14 @@ export const AddTransactionModal = ({
     defaultValues: getDefaultValues(transaction)
   });
 
+  // Add validation for ticker field
+  useEffect(() => {
+    register('ticker', {
+      required: 'Ticker is required',
+      maxLength: { value: 10, message: 'Ticker must be 10 characters or less' }
+    });
+  }, [register]);
+
   // Reset form when transaction changes or modal opens/closes
   useEffect(() => {
     if (isOpen) {
@@ -136,23 +145,16 @@ export const AddTransactionModal = ({
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Stock Ticker *
                 </label>
-                <input
-                  {...register('ticker', { 
-                    required: 'Ticker is required',
-                    maxLength: { value: 10, message: 'Ticker must be 10 characters or less' },
-                    onChange: (e) => {
-                      // Auto-convert to uppercase
-                      const value = e.target.value.toUpperCase();
-                      setValue('ticker', value);
-                    }
-                  })}
-                  placeholder={transaction ? transaction.ticker : "e.g., AAPL, MSFT, GOOGL"}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 uppercase"
+                <TickerAutocomplete
+                  value={watch('ticker') || ''}
+                  onChange={(value) => setValue('ticker', value)}
+                  onSelect={(suggestion: TickerSuggestion) => {
+                    setValue('ticker', suggestion.symbol);
+                  }}
+                  placeholder={transaction ? transaction.ticker : "Start typing ticker or company name..."}
                   disabled={isLoading}
+                  error={errors.ticker?.message}
                 />
-                {errors.ticker && (
-                  <p className="mt-1 text-sm text-red-600">{errors.ticker.message}</p>
-                )}
               </div>
 
               <div>
@@ -201,6 +203,7 @@ export const AddTransactionModal = ({
                   placeholder={transaction ? transaction.quantity.toString() : "e.g., 100 or 10.5 for fractional"}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                   disabled={isLoading}
+                  onFocus={(e) => e.target.select()}
                 />
                 {errors.quantity && (
                   <p className="mt-1 text-sm text-red-600">{errors.quantity.message}</p>
@@ -222,6 +225,7 @@ export const AddTransactionModal = ({
                   placeholder={transaction ? transaction.price.toString() : "e.g., 150.25"}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                   disabled={isLoading}
+                  onFocus={(e) => e.target.select()}
                 />
                 {errors.price && (
                   <p className="mt-1 text-sm text-red-600">{errors.price.message}</p>
@@ -242,6 +246,7 @@ export const AddTransactionModal = ({
                   placeholder={transaction?.fees ? transaction.fees.toString() : "e.g., 9.99 (leave empty if no fees)"}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                   disabled={isLoading}
+                  onFocus={(e) => e.target.select()}
                 />
                 {errors.fees && (
                   <p className="mt-1 text-sm text-red-600">{errors.fees.message}</p>
