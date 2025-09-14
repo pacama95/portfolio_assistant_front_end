@@ -73,6 +73,39 @@ export interface TransactionSearchParams {
   type?: TransactionType;
 }
 
+// New Dividend Service API Types
+export interface DividendEntry {
+  symbol: string;
+  company_name: string;
+  ex_date: string;
+  record_date: string | null;
+  pay_date: string | null;
+  announcement_date: string | null;
+  amount: number;
+  currency: string;
+  dividend_type: string | null;
+  frequency: string;
+  yield_percentage: number;
+  source: string;
+  scraped_at: string;
+}
+
+export interface DividendServiceResponse {
+  symbol: string;
+  dividends: DividendEntry[];
+  total_count: number;
+  cached: boolean;
+  cache_expires_at: string | null;
+  sources_attempted: string[];
+  successful_source: string;
+}
+
+export interface DividendServiceParams {
+  symbol: string;
+  sources?: string;
+}
+
+// Legacy dividend types (keeping for compatibility)
 export interface DividendResponse {
   symbol: string;
   micCode: string;

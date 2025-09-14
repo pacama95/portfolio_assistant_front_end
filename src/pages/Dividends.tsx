@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { CalendarIcon, TrendingUpIcon, DollarSignIcon } from 'lucide-react';
-import { portfolioApi } from '../api/client';
+import { portfolioApi, dividendsApi } from '../api/client';
 import type { DividendResponse, DividendSearchParams } from '../types/api';
 import { formatCurrency, formatDate } from '../utils/format';
 
@@ -118,10 +118,60 @@ const Dividends: React.FC = () => {
     endDate,
   };
 
-  const { data: dividendsData, isLoading, error } = useQuery({
-    queryKey: ['portfolio-dividends', searchParams],
-    queryFn: () => portfolioApi.getPortfolioDividends(searchParams),
-    enabled: !!startDate && !!endDate,
+  // First get portfolio positions to know which tickers to fetch dividends for
+  const { data: positions, isLoading: positionsLoading } = useQuery({
+    queryKey: ['active-positions'],
+    queryFn: () => portfolioApi.getActivePositions(),
+  });
+
+  const { data: dividendsData, isLoading: dividendsLoading, error } = useQuery({
+    queryKey: ['new-dividends', searchParams, positions?.map(p => p.ticker)],
+    queryFn: async () => {
+      if (!positions || positions.length === 0) return {};
+
+      const dividendPromises = positions.map(async (position) => {
+        try {
+          const response = await dividendsApi.getDividends({
+            symbol: position.ticker,
+            sources: 'yahoo'
+          });
+          
+          // Transform DividendEntry to DividendResponse format and filter by date range
+          const transformedDividends = response.dividends
+            .filter((dividend) => {
+              const exDate = new Date(dividend.ex_date);
+              const start = new Date(startDate);
+              const end = new Date(endDate);
+              return exDate >= start && exDate <= end;
+            })
+            .map((dividend): DividendResponse => ({
+              symbol: dividend.symbol,
+              micCode: '', // Not available in new API
+              exchange: '', // Not available in new API  
+              exDate: dividend.ex_date,
+              amount: dividend.amount,
+            }));
+
+          return { ticker: position.ticker, dividends: transformedDividends };
+        } catch (error) {
+          console.warn(`Failed to fetch dividends for ${position.ticker}:`, error);
+          return { ticker: position.ticker, dividends: [] };
+        }
+      });
+
+      const results = await Promise.all(dividendPromises);
+      
+      // Convert to the expected format: Record<string, DividendResponse[]>
+      const dividendsByTicker: Record<string, DividendResponse[]> = {};
+      results.forEach(({ ticker, dividends }) => {
+        if (dividends.length > 0) {
+          dividendsByTicker[ticker] = dividends;
+        }
+      });
+
+      return dividendsByTicker;
+    },
+    enabled: !!startDate && !!endDate && !!positions && positions.length > 0,
   });
 
   const processedData = useMemo(() => {
@@ -151,6 +201,8 @@ const Dividends: React.FC = () => {
   const totalPayments = useMemo(() => {
     return processedData.reduce((sum, item) => sum + item.dividends.length, 0);
   }, [processedData]);
+
+  const isLoading = positionsLoading || dividendsLoading;
 
   if (isLoading) {
     return (

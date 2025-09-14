@@ -8,6 +8,8 @@ import type {
   TransactionSearchParams,
   DividendResponse,
   DividendSearchParams,
+  DividendServiceResponse,
+  DividendServiceParams,
   TickerSuggestionsResponse,
   TickerSuggestionsParams,
 } from '../types/api';
@@ -15,6 +17,7 @@ import type {
 const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8081/api';
 const LOGO_API_BASE_URL = import.meta.env.VITE_LOGO_API_URL || 'http://0.0.0.0:8085';
 const SUGGESTIONS_API_BASE_URL = import.meta.env.VITE_SUGGESTIONS_API_URL || 'http://localhost:8090';
+const DIVIDENDS_API_BASE_URL = import.meta.env.VITE_DIVIDENDS_API_URL || 'http://localhost:8000';
 
 class ApiError extends Error {
   public status: number;
@@ -201,6 +204,34 @@ async function fetchTickerSuggestions(params: TickerSuggestionsParams): Promise<
 
 export const suggestionsApi = {
   getTickerSuggestions: fetchTickerSuggestions,
+};
+
+// Dividend service API function
+async function fetchDividendData(params: DividendServiceParams): Promise<DividendServiceResponse> {
+  const searchParams = new URLSearchParams();
+  if (params.sources) {
+    searchParams.append('sources', params.sources);
+  }
+
+  const url = `${DIVIDENDS_API_BASE_URL}/api/v1/dividend/${params.symbol}${
+    searchParams.toString() ? `?${searchParams.toString()}` : ''
+  }`;
+
+  const response = await fetch(url, {
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    throw new ApiError(response.status, `HTTP ${response.status}: ${response.statusText}`);
+  }
+
+  return response.json();
+}
+
+export const dividendsApi = {
+  getDividends: fetchDividendData,
 };
 
 export const portfolioApi = {
