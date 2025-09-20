@@ -123,11 +123,36 @@ export const AddTransactionModal = ({
   const watchQuantity = watch('quantity');
   const watchPrice = watch('price');
   const watchFees = watch('fees');
+  const watchExchange = watch('exchange');
+
+  // Get selected exchange data
+  const selectedExchange = exchanges?.exchanges?.find(e => e.code === watchExchange);
+
+  // Auto-populate currency and country when exchange is selected
+  useEffect(() => {
+    if (selectedExchange) {
+      // Auto-populate currency if exchange has currencyCode and current currency is empty or different
+      if (selectedExchange.currencyCode && watch('currency') !== selectedExchange.currencyCode) {
+        setValue('currency', selectedExchange.currencyCode as Currency);
+      }
+      
+      // Auto-populate country if exchange has country and current country is empty or different
+      if (selectedExchange.country && watch('country') !== selectedExchange.country) {
+        setValue('country', selectedExchange.country);
+      }
+    }
+  }, [selectedExchange, setValue, watch]);
   
   // Transform API data to SelectOption format
   const currencyOptions: SelectOption[] = useMemo(() => {
     if (!currencies?.currencies) return [];
-    return currencies.currencies
+    
+    // If an exchange is selected, filter currencies to only show the exchange's currency
+    const availableCurrencies = selectedExchange && selectedExchange.currencyCode
+      ? currencies.currencies.filter(c => c.code === selectedExchange.currencyCode)
+      : currencies.currencies;
+    
+    return availableCurrencies
       .filter(c => c.active)
       .map(currency => ({
         value: currency.code,
@@ -135,7 +160,7 @@ export const AddTransactionModal = ({
         searchText: `${currency.code} ${currency.name} ${currency.symbol || ''}`
       }))
       .sort((a, b) => a.value.localeCompare(b.value));
-  }, [currencies]);
+  }, [currencies, selectedExchange]);
 
   const exchangeOptions: SelectOption[] = useMemo(() => {
     if (!exchanges?.exchanges) return [];
@@ -150,14 +175,19 @@ export const AddTransactionModal = ({
   }, [exchanges]);
 
   const countryOptions: SelectOption[] = useMemo(() => {
-    return availableCountries
+    // If an exchange is selected, filter countries to only show the exchange's country
+    const availableCountriesList = selectedExchange && selectedExchange.country
+      ? [selectedExchange.country]
+      : availableCountries;
+    
+    return availableCountriesList
       .map(country => ({
         value: country,
         label: country,
         searchText: country
       }))
       .sort((a, b) => a.value.localeCompare(b.value));
-  }, [availableCountries]);
+  }, [availableCountries, selectedExchange]);
 
   // Calculate total value and cost
   const totalValue = (watchQuantity || 0) * (watchPrice || 0);
