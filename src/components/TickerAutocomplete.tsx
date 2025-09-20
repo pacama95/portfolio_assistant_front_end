@@ -44,7 +44,8 @@ export const TickerAutocomplete = ({
       clearTimeout(debounceRef.current);
     }
 
-    if (searchTerm.trim() && searchTerm.length >= 2) {
+    // Only search if we have a search term and the input has focus (user is actively typing)
+    if (searchTerm.trim() && searchTerm.length >= 2 && inputRef.current === document.activeElement) {
       debounceRef.current = setTimeout(async () => {
         setIsLoading(true);
         try {
@@ -84,9 +85,68 @@ export const TickerAutocomplete = ({
           setIsLoading(false);
         }
       }, 300);
-    } else {
+    } else if (!searchTerm.trim() || searchTerm.length < 2) {
+      // Clear suggestions if search term is too short
       setSuggestions([]);
       setIsOpen(false);
+    }
+    // Note: We don't close dropdown if search term exists but input doesn't have focus
+    // This allows users to navigate away temporarily without losing their search
+
+    return () => {
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+      }
+    };
+  }, [searchTerm]);
+
+  // Separate effect for filter changes - only triggers search if there's already a search term and input has focus
+  useEffect(() => {
+    if (searchTerm.trim() && searchTerm.length >= 2 && inputRef.current === document.activeElement) {
+      // Trigger a new search when filters change, but only if user is actively typing
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+      }
+      
+      debounceRef.current = setTimeout(async () => {
+        setIsLoading(true);
+        try {
+          let response;
+          
+          // Use advanced search if filters are provided and have values
+          const hasFilters = filters && (
+            (filters.currency && filters.currency.trim()) ||
+            (filters.exchange && filters.exchange.trim()) ||
+            (filters.country && filters.country.trim())
+          );
+
+          if (hasFilters) {
+            response = await suggestionsApi.getAdvancedSearch({
+              companyName: searchTerm.trim(),
+              currency: filters?.currency || undefined,
+              exchange: filters?.exchange || undefined,
+              country: filters?.country || undefined,
+              limit: 10
+            });
+          } else {
+            response = await suggestionsApi.getTickerSuggestions({
+              q: searchTerm.trim(),
+              limit: 10
+            });
+          }
+
+          console.log('API Response (filter change):', response);
+          setSuggestions(response.suggestions || []);
+          setIsOpen(response.suggestions && response.suggestions.length > 0);
+          setSelectedIndex(-1);
+        } catch (error) {
+          console.error('Failed to fetch ticker suggestions:', error);
+          setSuggestions([]);
+          setIsOpen(false);
+        } finally {
+          setIsLoading(false);
+        }
+      }, 300);
     }
 
     return () => {
@@ -94,7 +154,7 @@ export const TickerAutocomplete = ({
         clearTimeout(debounceRef.current);
       }
     };
-  }, [searchTerm, filters]);
+  }, [filters]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -113,6 +173,15 @@ export const TickerAutocomplete = ({
     const newValue = e.target.value.toUpperCase();
     setSearchTerm(newValue);
     onChange(newValue);
+  };
+
+  const handleInputBlur = () => {
+    // Close dropdown when input loses focus (with a small delay to allow for selection clicks)
+    setTimeout(() => {
+      if (inputRef.current !== document.activeElement) {
+        setIsOpen(false);
+      }
+    }, 150);
   };
 
   const handleSuggestionClick = (suggestion: TickerSuggestion) => {
@@ -185,6 +254,7 @@ export const TickerAutocomplete = ({
           onChange={handleInputChange}
           onKeyDown={handleKeyDown}
           onFocus={handleFocus}
+          onBlur={handleInputBlur}
           placeholder={placeholder}
           className={`w-full px-3 py-2 pr-10 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 uppercase ${className} ${
             error ? 'border-red-500 focus:ring-red-500 focus:border-red-500' : ''
