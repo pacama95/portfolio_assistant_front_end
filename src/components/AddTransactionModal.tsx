@@ -1,8 +1,11 @@
 import { useForm } from 'react-hook-form';
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { X, DollarSign, FileText } from 'lucide-react';
 import type { CreateTransactionRequest, TransactionResponse, TransactionType, Currency, TickerSuggestion } from '../types/api';
 import { TickerAutocomplete } from './TickerAutocomplete';
+import { SearchableSelect, type SelectOption } from './SearchableSelect';
+import { suggestionsApi } from '../api/client';
 
 interface AddTransactionModalProps {
   isOpen: boolean;
@@ -18,13 +21,6 @@ const transactionTypes: { value: TransactionType; label: string; description: st
   { value: 'DIVIDEND', label: 'Dividend', description: 'Dividend payment' },
 ];
 
-const currencies: { value: Currency; label: string }[] = [
-  { value: 'USD', label: 'USD ($)' },
-  { value: 'EUR', label: 'EUR (€)' },
-  { value: 'GBP', label: 'GBP (£)' },
-  { value: 'CAD', label: 'CAD (C$)' },
-  { value: 'JPY', label: 'JPY (¥)' },
-];
 
 export const AddTransactionModal = ({ 
   isOpen, 
@@ -38,6 +34,8 @@ export const AddTransactionModal = ({
     if (transaction) {
       return {
         ticker: transaction.ticker,
+        exchange: transaction.exchange || '',
+        country: transaction.country || '',
         transactionType: transaction.transactionType,
         quantity: transaction.quantity,
         price: transaction.price,
@@ -53,6 +51,8 @@ export const AddTransactionModal = ({
     
     return {
       ticker: '',
+      exchange: '',
+      country: '',
       transactionType: 'BUY' as TransactionType,
       quantity: 0,
       price: 0,
@@ -77,11 +77,20 @@ export const AddTransactionModal = ({
     defaultValues: getDefaultValues(transaction)
   });
 
-  // Add validation for ticker field
+  // Add validation for form fields
   useEffect(() => {
     register('ticker', {
       required: 'Ticker is required',
       maxLength: { value: 10, message: 'Ticker must be 10 characters or less' }
+    });
+    register('currency', {
+      required: 'Currency is required'
+    });
+    register('exchange', {
+      required: 'Exchange is required'
+    });
+    register('country', {
+      required: 'Country is required'
     });
   }, [register]);
 
@@ -93,10 +102,63 @@ export const AddTransactionModal = ({
     }
   }, [isOpen, transaction, reset]);
 
+  // Load options from API
+  const { data: currencies } = useQuery({
+    queryKey: ['currencies'],
+    queryFn: () => suggestionsApi.getCurrencies(),
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+  });
+
+  const { data: exchanges } = useQuery({
+    queryKey: ['exchanges'],
+    queryFn: () => suggestionsApi.getExchanges(),
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+  });
+
+  // Get unique countries from exchanges
+  const availableCountries: string[] = exchanges?.exchanges
+    ? [...new Set(exchanges.exchanges.map(e => e.country).filter(Boolean))] as string[]
+    : [];
+
   const watchQuantity = watch('quantity');
   const watchPrice = watch('price');
   const watchFees = watch('fees');
   
+  // Transform API data to SelectOption format
+  const currencyOptions: SelectOption[] = useMemo(() => {
+    if (!currencies?.currencies) return [];
+    return currencies.currencies
+      .filter(c => c.active)
+      .map(currency => ({
+        value: currency.code,
+        label: `${currency.code} - ${currency.name}`,
+        searchText: `${currency.code} ${currency.name} ${currency.symbol || ''}`
+      }))
+      .sort((a, b) => a.value.localeCompare(b.value));
+  }, [currencies]);
+
+  const exchangeOptions: SelectOption[] = useMemo(() => {
+    if (!exchanges?.exchanges) return [];
+    return exchanges.exchanges
+      .filter(e => e.active)
+      .map(exchange => ({
+        value: exchange.code,
+        label: `${exchange.code} - ${exchange.name}`,
+        searchText: `${exchange.code} ${exchange.name} ${exchange.country || ''}`
+      }))
+      .sort((a, b) => a.value.localeCompare(b.value));
+  }, [exchanges]);
+
+  const countryOptions: SelectOption[] = useMemo(() => {
+    return availableCountries
+      .map(country => ({
+        value: country,
+        label: country,
+        searchText: country
+      }))
+      .sort((a, b) => a.value.localeCompare(b.value));
+  }, [availableCountries]);
+
   // Calculate total value and cost
   const totalValue = (watchQuantity || 0) * (watchPrice || 0);
   const totalCost = totalValue + (watchFees || 0);
@@ -133,6 +195,65 @@ export const AddTransactionModal = ({
         {/* Scrollable Content */}
         <div className="flex-1 overflow-y-auto">
           <form id="transaction-form" onSubmit={handleSubmit(handleFormSubmit)} className="p-4 sm:p-6 space-y-4 sm:space-y-6">
+          
+          {/* Market Information */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-medium text-gray-900 flex items-center">
+              <DollarSign className="h-5 w-5 mr-2" />
+              Market Information
+            </h3>
+            <p className="text-sm text-gray-600">
+              Please select the market details first to get better ticker suggestions
+            </p>
+            
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Currency *
+                </label>
+                <SearchableSelect
+                  value={watch('currency') || ''}
+                  onChange={(value) => setValue('currency', value as Currency)}
+                  options={currencyOptions}
+                  placeholder="Search and select currency..."
+                  disabled={isLoading}
+                  error={errors.currency?.message}
+                  name="currency"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Exchange *
+                </label>
+                <SearchableSelect
+                  value={watch('exchange') || ''}
+                  onChange={(value) => setValue('exchange', value)}
+                  options={exchangeOptions}
+                  placeholder="Search and select exchange..."
+                  disabled={isLoading}
+                  error={errors.exchange?.message}
+                  name="exchange"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Country *
+                </label>
+                <SearchableSelect
+                  value={watch('country') || ''}
+                  onChange={(value) => setValue('country', value)}
+                  options={countryOptions}
+                  placeholder="Search and select country..."
+                  disabled={isLoading}
+                  error={errors.country?.message}
+                  name="country"
+                />
+              </div>
+            </div>
+          </div>
+
           {/* Stock Information */}
           <div className="space-y-4">
             <h3 className="text-lg font-medium text-gray-900 flex items-center">
@@ -154,6 +275,11 @@ export const AddTransactionModal = ({
                   placeholder={transaction ? transaction.ticker : "Start typing ticker or company name..."}
                   disabled={isLoading}
                   error={errors.ticker?.message}
+                  filters={{
+                    currency: watch('currency'),
+                    exchange: watch('exchange'),
+                    country: watch('country'),
+                  }}
                 />
               </div>
 
@@ -250,26 +376,6 @@ export const AddTransactionModal = ({
                 />
                 {errors.fees && (
                   <p className="mt-1 text-sm text-red-600">{errors.fees.message}</p>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Currency *
-                </label>
-                <select
-                  {...register('currency', { required: 'Currency is required' })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                  disabled={isLoading}
-                >
-                  {currencies.map(currency => (
-                    <option key={currency.value} value={currency.value}>
-                      {currency.label}
-                    </option>
-                  ))}
-                </select>
-                {errors.currency && (
-                  <p className="mt-1 text-sm text-red-600">{errors.currency.message}</p>
                 )}
               </div>
 

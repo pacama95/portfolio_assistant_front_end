@@ -12,6 +12,10 @@ import type {
   DividendServiceParams,
   TickerSuggestionsResponse,
   TickerSuggestionsParams,
+  AdvancedSearchParams,
+  CurrencyResponse,
+  ExchangeResponse,
+  StockTypeResponse,
 } from '../types/api';
 
 const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8081/api';
@@ -181,7 +185,7 @@ export const logoApi = {
   getCacheStats: () => logoCache.getCacheStats(),
 };
 
-// Ticker suggestions API function
+// Ticker suggestions API functions
 async function fetchTickerSuggestions(params: TickerSuggestionsParams): Promise<TickerSuggestionsResponse> {
   const searchParams = new URLSearchParams();
   searchParams.append('q', params.q);
@@ -189,7 +193,72 @@ async function fetchTickerSuggestions(params: TickerSuggestionsParams): Promise<
     searchParams.append('limit', params.limit.toString());
   }
 
-  const response = await fetch(`${SUGGESTIONS_API_BASE_URL}/suggestions?${searchParams.toString()}`, {
+  const response = await fetch(`${SUGGESTIONS_API_BASE_URL}/v1/suggestions?${searchParams.toString()}`, {
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    throw new ApiError(response.status, `HTTP ${response.status}: ${response.statusText}`);
+  }
+
+  return response.json();
+}
+
+async function fetchAdvancedSearch(params: AdvancedSearchParams): Promise<TickerSuggestionsResponse> {
+  const searchParams = new URLSearchParams();
+  
+  if (params.symbol) searchParams.append('symbol', params.symbol);
+  if (params.companyName) searchParams.append('companyName', params.companyName);
+  if (params.exchange) searchParams.append('exchange', params.exchange);
+  if (params.country) searchParams.append('country', params.country);
+  if (params.currency) searchParams.append('currency', params.currency);
+  if (params.limit) searchParams.append('limit', params.limit.toString());
+
+  const response = await fetch(`${SUGGESTIONS_API_BASE_URL}/v1/suggestions/search?${searchParams.toString()}`, {
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    throw new ApiError(response.status, `HTTP ${response.status}: ${response.statusText}`);
+  }
+
+  return response.json();
+}
+
+async function fetchCurrencies(): Promise<CurrencyResponse> {
+  const response = await fetch(`${SUGGESTIONS_API_BASE_URL}/v1/currencies`, {
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    throw new ApiError(response.status, `HTTP ${response.status}: ${response.statusText}`);
+  }
+
+  return response.json();
+}
+
+async function fetchExchanges(): Promise<ExchangeResponse> {
+  const response = await fetch(`${SUGGESTIONS_API_BASE_URL}/v1/exchanges`, {
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    throw new ApiError(response.status, `HTTP ${response.status}: ${response.statusText}`);
+  }
+
+  return response.json();
+}
+
+async function fetchStockTypes(): Promise<StockTypeResponse> {
+  const response = await fetch(`${SUGGESTIONS_API_BASE_URL}/v1/stock-types`, {
     headers: {
       'Content-Type': 'application/json',
     },
@@ -204,6 +273,10 @@ async function fetchTickerSuggestions(params: TickerSuggestionsParams): Promise<
 
 export const suggestionsApi = {
   getTickerSuggestions: fetchTickerSuggestions,
+  getAdvancedSearch: fetchAdvancedSearch,
+  getCurrencies: fetchCurrencies,
+  getExchanges: fetchExchanges,
+  getStockTypes: fetchStockTypes,
 };
 
 // Dividend service API function

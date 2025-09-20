@@ -11,6 +11,11 @@ interface TickerAutocompleteProps {
   className?: string;
   disabled?: boolean;
   error?: string;
+  filters?: {
+    currency?: string;
+    exchange?: string;
+    country?: string;
+  };
 }
 
 export const TickerAutocomplete = ({
@@ -20,7 +25,8 @@ export const TickerAutocomplete = ({
   placeholder = 'e.g., AAPL, Apple Inc.',
   className = '',
   disabled = false,
-  error
+  error,
+  filters
 }: TickerAutocompleteProps) => {
   const [suggestions, setSuggestions] = useState<TickerSuggestion[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -42,10 +48,31 @@ export const TickerAutocomplete = ({
       debounceRef.current = setTimeout(async () => {
         setIsLoading(true);
         try {
-          const response = await suggestionsApi.getTickerSuggestions({
-            q: searchTerm.trim(),
-            limit: 10
-          });
+          let response;
+          
+          // Use advanced search if filters are provided and have values
+          const hasFilters = filters && (
+            (filters.currency && filters.currency.trim()) ||
+            (filters.exchange && filters.exchange.trim()) ||
+            (filters.country && filters.country.trim())
+          );
+
+          if (hasFilters) {
+            response = await suggestionsApi.getAdvancedSearch({
+              companyName: searchTerm.trim(),
+              currency: filters?.currency || undefined,
+              exchange: filters?.exchange || undefined,
+              country: filters?.country || undefined,
+              limit: 10
+            });
+          } else {
+            response = await suggestionsApi.getTickerSuggestions({
+              q: searchTerm.trim(),
+              limit: 10
+            });
+          }
+
+          console.log('API Response:', response);
           setSuggestions(response.suggestions || []);
           setIsOpen(response.suggestions && response.suggestions.length > 0);
           setSelectedIndex(-1);
@@ -67,7 +94,7 @@ export const TickerAutocomplete = ({
         clearTimeout(debounceRef.current);
       }
     };
-  }, [searchTerm]);
+  }, [searchTerm, filters]);
 
   // Close dropdown when clicking outside
   useEffect(() => {

@@ -31,6 +31,8 @@ export interface PositionResponse {
 export interface TransactionResponse {
   id: string;
   ticker: string;
+  exchange?: string;
+  country?: string;
   transactionType: TransactionType;
   quantity: number;
   price: number;
@@ -48,6 +50,8 @@ export interface TransactionResponse {
 
 export interface CreateTransactionRequest {
   ticker: string;
+  exchange: string;
+  country: string;
   transactionType: TransactionType;
   quantity: number;
   price: number;
@@ -119,14 +123,14 @@ export interface DividendSearchParams {
   endDate: string;
 }
 
-// Ticker Suggestions API Types
+// Enhanced Ticker Suggestions API Types
 export interface TickerSuggestion {
+  id: number;
   symbol: string;
   name: string;
   exchange: string;
   type: string;
-  region: string;
-  marketCap: string;
+  country: string;
   currency: string;
 }
 
@@ -139,4 +143,58 @@ export interface TickerSuggestionsResponse {
 export interface TickerSuggestionsParams {
   q: string;
   limit?: number;
+}
+
+export interface AdvancedSearchParams {
+  symbol?: string;
+  companyName?: string;
+  exchange?: string;
+  country?: string;
+  currency?: string;
+  limit?: number;
+}
+
+// Currency API Types
+export interface CurrencyDto {
+  id: number;
+  code: string;
+  name: string;
+  symbol?: string;
+  countryCode?: string;
+  active: boolean;
+}
+
+export interface CurrencyResponse {
+  currencies: CurrencyDto[];
+  count: number;
+}
+
+// Exchange API Types
+export interface ExchangeDto {
+  id: number;
+  code: string;
+  name: string;
+  country?: string;
+  timezone?: string;
+  currencyCode?: string;
+  active: boolean;
+}
+
+export interface ExchangeResponse {
+  exchanges: ExchangeDto[];
+  count: number;
+}
+
+// Stock Type API Types
+export interface StockTypeDto {
+  id: number;
+  code: string;
+  name: string;
+  description?: string;
+  active: boolean;
+}
+
+export interface StockTypeResponse {
+  stockTypes: StockTypeDto[];
+  count: number;
 }
