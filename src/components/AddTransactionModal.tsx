@@ -301,6 +301,16 @@ export const AddTransactionModal = ({
                   onChange={(value) => setValue('ticker', value)}
                   onSelect={(suggestion: TickerSuggestion) => {
                     setValue('ticker', suggestion.symbol);
+                    // Auto-populate marketing information from selected stock
+                    if (suggestion.exchange) {
+                      setValue('exchange', suggestion.exchange);
+                    }
+                    if (suggestion.country) {
+                      setValue('country', suggestion.country);
+                    }
+                    if (suggestion.currency) {
+                      setValue('currency', suggestion.currency as Currency);
+                    }
                   }}
                   placeholder={transaction ? transaction.ticker : "Start typing ticker or company name..."}
                   disabled={isLoading}
