@@ -291,7 +291,7 @@ export const TickerAutocomplete = ({
               <div className="flex items-center justify-between">
                 <div className="flex flex-col">
                   <span className="font-semibold text-gray-900 text-sm">
-                    {suggestion.symbol}
+                    {suggestion.symbol} • {suggestion.exchange}
                   </span>
                   <span className="text-gray-600 text-xs truncate max-w-xs">
                     {suggestion.name}
