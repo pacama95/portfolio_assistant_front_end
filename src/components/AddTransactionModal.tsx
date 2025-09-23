@@ -56,7 +56,7 @@ export const AddTransactionModal = ({
       transactionType: 'BUY' as TransactionType,
       quantity: 0,
       price: 0,
-      currency: 'USD' as Currency,
+      currency: '' as Currency,
       fees: 0,
       isFractional: false,
       fractionalMultiplier: 1,
