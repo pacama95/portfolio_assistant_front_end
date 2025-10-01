@@ -94,16 +94,17 @@ npm run build
 
 ## 🔧 Environment Configuration
 
-### Backend API URL
+### Backend API URLs
 
-Update your API base URL for production in `src/api/client.ts`:
+Update your API base URLs for production in `src/api/client.ts`:
 
 ```typescript
-const BASE_URL = process.env.VITE_API_URL || 'https://your-api-domain.com/api';
+const TRANSACTIONS_API_BASE_URL = import.meta.env.VITE_TRANSACTIONS_API_URL || 'https://your-transactions-api.com/api';
+const PORTFOLIO_API_BASE_URL = import.meta.env.VITE_PORTFOLIO_API_URL || 'https://your-portfolio-api.com/api';
 ```
 
-Then set the environment variable:
-- **Netlify/Vercel**: Set `VITE_API_URL` in the dashboard
+Then set the environment variables:
+- **Netlify/Vercel**: Set `VITE_TRANSACTIONS_API_URL` and `VITE_PORTFOLIO_API_URL` in the dashboard
 - **Docker**: Add to docker-compose.yml or Dockerfile
 - **GitHub Pages**: Not applicable (static hosting only)
 
@@ -154,7 +155,11 @@ npm run dev:host
 ### 1. Environment Variables
 ```bash
 # Example .env.production
-VITE_API_URL=https://api.yourbackend.com
+VITE_TRANSACTIONS_API_URL=https://transactions-api.yourbackend.com/api
+VITE_PORTFOLIO_API_URL=https://portfolio-api.yourbackend.com/api
+VITE_LOGO_API_URL=https://logo-api.yourbackend.com
+VITE_SUGGESTIONS_API_URL=https://suggestions-api.yourbackend.com
+VITE_DIVIDENDS_API_URL=https://dividends-api.yourbackend.com
 VITE_APP_NAME=Portfolio Assistant
 ```
 
@@ -205,8 +210,8 @@ npm install @sentry/react
 
 1. **Blank page after deployment**
    - Check console for API connection errors
-   - Verify `VITE_API_URL` is set correctly
-   - Verify `VITE_LOGO_API_URL` is set correctly
+   - Verify `VITE_TRANSACTIONS_API_URL` and `VITE_PORTFOLIO_API_URL` are set correctly
+   - Verify `VITE_LOGO_API_URL`, `VITE_SUGGESTIONS_API_URL`, and `VITE_DIVIDENDS_API_URL` are set correctly
 
 2. **404 on refresh**
    - Ensure your hosting platform supports SPA routing

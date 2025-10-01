@@ -18,7 +18,8 @@ import type {
   StockTypeResponse,
 } from '../types/api';
 
-const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8081/api';
+const TRANSACTIONS_API_BASE_URL = import.meta.env.VITE_TRANSACTIONS_API_URL || 'http://localhost:8081/api';
+const PORTFOLIO_API_BASE_URL = import.meta.env.VITE_PORTFOLIO_API_URL || 'http://localhost:8085/api';
 const LOGO_API_BASE_URL = import.meta.env.VITE_LOGO_API_URL || 'http://0.0.0.0:8085';
 const SUGGESTIONS_API_BASE_URL = import.meta.env.VITE_SUGGESTIONS_API_URL || 'http://localhost:8090';
 const DIVIDENDS_API_BASE_URL = import.meta.env.VITE_DIVIDENDS_API_URL || 'http://localhost:8000';
@@ -33,8 +34,8 @@ class ApiError extends Error {
   }
 }
 
-async function apiRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-  let url = `${BASE_URL}${endpoint}`;
+async function apiRequest<T>(baseUrl: string, endpoint: string, options: RequestInit = {}): Promise<T> {
+  let url = `${baseUrl}${endpoint}`;
   
   const response = await fetch(url, {
     headers: {
@@ -54,6 +55,15 @@ async function apiRequest<T>(endpoint: string, options: RequestInit = {}): Promi
   }
 
   return response.json();
+}
+
+// Helper functions for different API endpoints
+async function transactionsApiRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+  return apiRequest<T>(TRANSACTIONS_API_BASE_URL, endpoint, options);
+}
+
+async function portfolioApiRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+  return apiRequest<T>(PORTFOLIO_API_BASE_URL, endpoint, options);
 }
 
 interface CachedLogo {
@@ -310,53 +320,53 @@ export const dividendsApi = {
 export const portfolioApi = {
   // Portfolio endpoints
   getPortfolioSummary: (): Promise<PortfolioSummaryResponse> =>
-    apiRequest('/portfolio/summary'),
+    portfolioApiRequest('/portfolio/summary'),
     
   getActivePortfolioSummary: (): Promise<PortfolioSummaryResponse> =>
-    apiRequest('/portfolio/summary/active'),
+    portfolioApiRequest('/portfolio/summary/active'),
 
   // Position endpoints
   getAllPositions: (): Promise<PositionResponse[]> =>
-    apiRequest('/positions'),
+    portfolioApiRequest('/positions'),
     
   getActivePositions: (): Promise<PositionResponse[]> =>
-    apiRequest('/positions/active'),
+    portfolioApiRequest('/positions/active'),
     
   getPositionByTicker: (ticker: string): Promise<PositionResponse> =>
-    apiRequest(`/positions/ticker/${ticker}`),
+    portfolioApiRequest(`/positions/ticker/${ticker}`),
     
   getPositionById: (id: string): Promise<PositionResponse> =>
-    apiRequest(`/positions/${id}`),
+    portfolioApiRequest(`/positions/${id}`),
     
   checkPositionExists: (ticker: string): Promise<boolean> =>
-    apiRequest(`/positions/ticker/${ticker}/exists`),
+    portfolioApiRequest(`/positions/ticker/${ticker}/exists`),
     
   getPositionCount: (): Promise<number> =>
-    apiRequest('/positions/count'),
+    portfolioApiRequest('/positions/count'),
     
   getActivePositionCount: (): Promise<number> =>
-    apiRequest('/positions/count/active'),
+    portfolioApiRequest('/positions/count/active'),
     
   updateMarketPrice: (ticker: string, request: UpdateMarketDataRequest): Promise<PositionResponse> =>
-    apiRequest(`/positions/ticker/${ticker}/price`, {
+    portfolioApiRequest(`/positions/ticker/${ticker}/price`, {
       method: 'PUT',
       body: JSON.stringify(request),
     }),
     
   recalculatePosition: (ticker: string): Promise<PositionResponse> =>
-    apiRequest(`/positions/ticker/${ticker}/recalculate`, {
+    portfolioApiRequest(`/positions/ticker/${ticker}/recalculate`, {
       method: 'POST',
     }),
 
   // Transaction endpoints
   getAllTransactions: (): Promise<TransactionResponse[]> =>
-    apiRequest('/transactions'),
+    transactionsApiRequest('/transactions'),
     
   getTransactionsByTicker: (ticker: string): Promise<TransactionResponse[]> =>
-    apiRequest(`/transactions/ticker/${ticker}`),
+    transactionsApiRequest(`/transactions/ticker/${ticker}`),
     
   getTransactionById: (id: string): Promise<TransactionResponse> =>
-    apiRequest(`/transactions/${id}`),
+    transactionsApiRequest(`/transactions/${id}`),
     
   searchTransactions: (params: TransactionSearchParams): Promise<TransactionResponse[]> => {
     const searchParams = new URLSearchParams();
@@ -365,31 +375,31 @@ export const portfolioApi = {
     if (params.ticker) searchParams.append('ticker', params.ticker);
     if (params.type) searchParams.append('type', params.type);
     
-    return apiRequest(`/transactions/search?${searchParams.toString()}`);
+    return transactionsApiRequest(`/transactions/search?${searchParams.toString()}`);
   },
     
   createTransaction: (request: CreateTransactionRequest): Promise<TransactionResponse> =>
-    apiRequest('/transactions', {
+    transactionsApiRequest('/transactions', {
       method: 'POST',
       body: JSON.stringify(request),
     }),
     
   updateTransaction: (id: string, request: UpdateTransactionRequest): Promise<TransactionResponse> =>
-    apiRequest(`/transactions/${id}`, {
+    transactionsApiRequest(`/transactions/${id}`, {
       method: 'PUT',
       body: JSON.stringify(request),
     }),
     
   deleteTransaction: (id: string): Promise<void> =>
-    apiRequest(`/transactions/${id}`, {
+    transactionsApiRequest(`/transactions/${id}`, {
       method: 'DELETE',
     }),
     
   getTransactionCount: (): Promise<number> =>
-    apiRequest('/transactions/count'),
+    transactionsApiRequest('/transactions/count'),
     
   getTransactionCountByTicker: (ticker: string): Promise<number> =>
-    apiRequest(`/transactions/count/${ticker}`),
+    transactionsApiRequest(`/transactions/count/${ticker}`),
 
   // Dividend endpoints
   getPortfolioDividends: (params: DividendSearchParams): Promise<Record<string, DividendResponse[]>> => {
@@ -397,7 +407,7 @@ export const portfolioApi = {
     searchParams.append('startDate', params.startDate);
     searchParams.append('endDate', params.endDate);
     
-    return apiRequest(`/dividends/portfolio?${searchParams.toString()}`);
+    return portfolioApiRequest(`/dividends/portfolio?${searchParams.toString()}`);
   },
     
   getDividendsByTicker: (ticker: string, params: DividendSearchParams): Promise<DividendResponse[]> => {
@@ -405,7 +415,7 @@ export const portfolioApi = {
     searchParams.append('startDate', params.startDate);
     searchParams.append('endDate', params.endDate);
     
-    return apiRequest(`/dividends/ticker/${ticker}?${searchParams.toString()}`);
+    return portfolioApiRequest(`/dividends/ticker/${ticker}?${searchParams.toString()}`);
   },
 };
 
