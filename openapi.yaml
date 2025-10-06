@@ -1,883 +1,357 @@
----
-openapi: 3.1.0
+openapi: 3.0.3
+info:
+  title: Portfolio Insights Agent API
+  version: "1.0.0"
+  description: |
+    HTTP API that streams the progress of generating daily portfolio insights (via Server-Sent Events)
+    and returns a final JSON object that follows a strict contract.
+servers:
+  - url: https://your-railway-app.up.railway.app
+    description: Railway
+  - url: http://localhost:8080
+    description: Local development
+paths:
+  /health:
+    get:
+      summary: Health check
+      operationId: getHealth
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+  /insights:
+    post:
+      summary: Generate portfolio insights (final JSON)
+      operationId: postInsights
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InsightsRequest"
+            examples:
+              example:
+                value:
+                  query: "Generate today's portfolio insights"
+                  thread_id: "optional-thread"
+      responses:
+        "200":
+          description: Final insights JSON
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InsightsResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /insights/stream:
+    get:
+      summary: Stream progress events (SSE) while generating insights
+      operationId: getInsightsStream
+      parameters:
+        - in: query
+          name: query
+          required: true
+          schema:
+            type: string
+            minLength: 2
+          description: User request for insights
+        - in: query
+          name: thread_id
+          required: false
+          schema:
+            type: string
+          description: Optional thread identifier
+      responses:
+        "200":
+          description: Server-Sent Events stream
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                description: SSE formatted stream
+              examples:
+                example:
+                  summary: Event stream example
+                  value: |
+                    event: planner:start
+                    data: {"thread_id":"default"}
+
+                    event: planner:done
+                    data: {"status":"planned"}
+
+                    event: assistant:invoke
+                    data: {"retry":0}
+
+                    event: progress
+                    data: {"action":"retrieving_portfolio_summary","subject":"active"}
+
+                    event: validator:ok
+                    data: {"size":1234}
+
+                    event: judge:done
+                    data: {"status":"CORRECT"}
+
+                    event: final
+                    data: {"version":"1.0","generated_at_utc":"2025-10-06T18:25:00Z","insights":[]}
+    post:
+      summary: Stream progress events (SSE) while generating insights (POST body)
+      operationId: postInsightsStream
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InsightsRequest"
+            examples:
+              example:
+                value:
+                  query: "Generate today's portfolio insights"
+                  thread_id: "optional-thread"
+      responses:
+        "200":
+          description: Server-Sent Events stream
+          content:
+            text/event-stream:
+              schema:
+                type: string
+              examples:
+                example:
+                  value: |
+                    event: progress
+                    data: {"action":"searching_latest_news","subject":"AAPL earnings guidance"}
+
+                    event: final
+                    data: {"version":"1.0","generated_at_utc":"2025-10-06T18:25:00Z","insights":[]}
 components:
   schemas:
-    CreateTransactionRequest:
+    HealthResponse:
       type: object
-      required:
-      - ticker
-      - transactionType
-      - quantity
-      - price
-      - currency
-      - transactionDate
-      description: Request to create a new transaction
       properties:
-        ticker:
-          type: string
-          minLength: 1
-          examples:
-          - AAPL
-          maxLength: 10
-          description: Stock ticker symbol
-        transactionType:
-          $ref: "#/components/schemas/TransactionType"
-          type: string
-          description: Type of transaction (BUY/SELL)
-        quantity:
-          type: number
-          examples:
-          - 100.0
-          description: Number of shares
-          minimum: 0.00010
-        price:
-          type: number
-          examples:
-          - 150.25
-          description: Price per share
-          minimum: 0.01
-        fees:
-          type: number
-          examples:
-          - 9.99
-          description: Transaction fees
-          default: 0.0
-          minimum: 0.0
-        currency:
-          $ref: "#/components/schemas/Currency"
-          type: string
-          description: Transaction currency
-        transactionDate:
-          $ref: "#/components/schemas/LocalDate"
-          type: string
-          examples:
-          - 2023-10-15
-          description: Date of the transaction
-        notes:
-          type: string
-          examples:
-          - Quarterly investment
-          maxLength: 500
-          description: Optional notes about the transaction
-        isFractional:
+        ok:
           type: boolean
-          description: Whether this is a fractional share transaction
-          default: false
-        fractionalMultiplier:
-          type: number
-          description: Multiplier for fractional shares
-          default: 1.0
-        commissionCurrency:
-          $ref: "#/components/schemas/Currency"
+          example: true
+        service:
           type: string
-          description: Currency for commission fees
-    Currency:
-      type: string
-      enum:
-      - USD
-      - EUR
-      - GBP
-      - CAD
-      - JPY
-    DividendResponse:
+          example: portfolio-insights-agent
+      required: [ok, service]
+    InsightsRequest:
       type: object
-      description: Dividend response with dividend payment details
       properties:
-        symbol:
+        query:
           type: string
-          examples:
-          - AAPL
-          description: Stock ticker symbol
-        micCode:
+          minLength: 2
+          description: User request for insights
+        thread_id:
           type: string
-          examples:
-          - XNAS
-          description: Market Identifier Code
-        exchange:
-          type: string
-          examples:
-          - NASDAQ
-          description: Exchange where the stock is traded
-        exDate:
-          $ref: "#/components/schemas/LocalDate"
-          type: string
-          examples:
-          - 2023-11-10
-          description: Ex-dividend date - date when stock starts trading without dividend
-        amount:
-          type: number
-          examples:
-          - 0.24
-          description: Dividend amount per share
-    LocalDate:
-      type: string
-      format: date
-    PortfolioSummaryResponse:
+          nullable: true
+          description: Optional thread identifier
+      required: [query]
+    Error:
       type: object
-      description: Portfolio summary with aggregated financial data
       properties:
-        totalMarketValue:
+        error:
+          type: string
+          example: "'query' must be a non-empty string"
+    InsightKeyNumber:
+      type: object
+      properties:
+        label:
+          type: string
+          example: "Portfolio return (day)"
+        value:
           type: number
-          examples:
-          - 125000.0
-          description: Total current market value of all positions
-        totalCost:
-          type: number
-          examples:
-          - 110000.0
-          description: Total cost basis of all positions
-        totalUnrealizedGainLoss:
-          type: number
-          examples:
-          - 15000.0
-          description: Total unrealized gain or loss
-        totalUnrealizedGainLossPercentage:
-          type: number
-          examples:
-          - 13.64
-          description: Total unrealized gain or loss as percentage
-        totalPositions:
+          example: 3.1
+        unit:
+          type: string
+          example: "%"
+      required: [label, value, unit]
+    Insight:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [performance, alert, risk, opportunity]
+        title:
+          type: string
+          description: 2–5 words
+          example: "Outperforms S&P"
+        summary:
+          type: string
+          description: One sentence (18–28 words) with specific numbers
+        details:
+          type: string
+          description: One sentence (25–45 words) adding context/comparisons/action to consider (not advice)
+        tickers:
+          type: array
+          items:
+            type: string
+          description: Empty if portfolio-level
+        key_numbers:
+          type: array
+          minItems: 1
+          maxItems: 5
+          items:
+            $ref: "#/components/schemas/InsightKeyNumber"
+        sources:
+          type: array
+          items:
+            type: string
+          description: Include at least one URL when external info is used; else []
+        priority:
           type: integer
-          format: int64
-          examples:
-          - 10
-          description: Total number of positions in portfolio
-        activePositions:
-          type: integer
-          format: int64
-          examples:
-          - 8
-          description: Number of active positions (with shares > 0)
-    PositionResponse:
+          minimum: 1
+          maximum: 5
+      required: [type, title, summary, details, tickers, key_numbers, sources, priority]
+    InsightsResponse:
       type: object
-      description: Position response with current position details and market values
       properties:
-        id:
-          $ref: "#/components/schemas/UUID"
+        version:
           type: string
-          examples:
-          - 550e8400-e29b-41d4-a716-446655440000
-          description: Unique position identifier
-        ticker:
+          example: "1.0"
+        generated_at_utc:
           type: string
-          examples:
-          - AAPL
-          description: Stock ticker symbol
-        totalQuantity:
-          type: number
-          examples:
-          - 250.0
-          description: Total number of shares held
-        averagePrice:
-          type: number
-          examples:
-          - 145.5
-          description: Average purchase price per share
-        currentPrice:
-          type: number
-          examples:
-          - 155.25
-          description: Current market price per share
-        totalCost:
-          type: number
-          examples:
-          - 36375.0
-          description: Total cost basis of the position
-        currency:
-          $ref: "#/components/schemas/Currency"
-          type: string
-          description: Position currency
-        lastUpdated:
-          $ref: "#/components/schemas/LocalDate"
-          type: string
-          examples:
-          - 2023-10-15
-          description: Date when position was last updated
-        isActive:
-          type: boolean
-          description: Whether the position is active (has shares > 0)
-        marketValue:
-          type: number
-          examples:
-          - 38812.5
-          description: Current market value of the position
-        unrealizedGainLoss:
-          type: number
-          examples:
-          - 2437.5
-          description: Unrealized gain or loss
-        unrealizedGainLossPercentage:
-          type: number
-          examples:
-          - 6.7
-          description: Unrealized gain or loss as percentage
-    TransactionResponse:
+          format: date-time
+          example: "2025-10-06T18:25:00Z"
+        insights:
+          type: array
+          minItems: 0
+          maxItems: 6
+          items:
+            $ref: "#/components/schemas/Insight"
+      required: [version, generated_at_utc, insights]
+    # Optional: Document individual SSE event payloads (non-normative for OpenAPI)
+    SseEventPlannerStart:
       type: object
-      description: Transaction response with all transaction details
       properties:
-        id:
-          $ref: "#/components/schemas/UUID"
+        event:
           type: string
-          examples:
-          - 550e8400-e29b-41d4-a716-446655440000
-          description: Unique transaction identifier
-        ticker:
-          type: string
-          examples:
-          - AAPL
-          description: Stock ticker symbol
-        transactionType:
-          $ref: "#/components/schemas/TransactionType"
-          type: string
-          description: Type of transaction
-        quantity:
-          type: number
-          examples:
-          - 100.0
-          description: Number of shares
-        price:
-          type: number
-          examples:
-          - 150.25
-          description: Price per share
-        fees:
-          type: number
-          examples:
-          - 9.99
-          description: Transaction fees
-        currency:
-          $ref: "#/components/schemas/Currency"
-          type: string
-          description: Transaction currency
-        transactionDate:
-          $ref: "#/components/schemas/LocalDate"
-          type: string
-          examples:
-          - 2023-10-15
-          description: Date of the transaction
-        notes:
-          type: string
-          description: Optional notes about the transaction
-        isActive:
-          type: boolean
-          description: Whether the transaction is active
-        totalValue:
-          type: number
-          examples:
-          - 15025.0
-          description: Total transaction value
-        totalCost:
-          type: number
-          examples:
-          - 15034.99
-          description: Total transaction cost including fees
-        isFractional:
-          type: boolean
-          description: Whether this is a fractional share transaction
-        fractionalMultiplier:
-          type: number
-          description: Multiplier for fractional shares
-        commissionCurrency:
-          $ref: "#/components/schemas/Currency"
-          type: string
-          description: Currency for commission fees
-    TransactionType:
-      type: string
-      enum:
-      - BUY
-      - SELL
-      - DIVIDEND
-    UUID:
-      type: string
-      format: uuid
-      pattern: "[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}"
-    UpdateMarketDataRequest:
+          enum: [planner:start]
+        data:
+          type: object
+          properties:
+            thread_id:
+              type: string
+    SseEventPlannerDone:
       type: object
-      required:
-      - price
-      description: Request to update market price for a position
       properties:
-        price:
-          type: number
-          examples:
-          - 155.75
-          description: New market price per share
-          minimum: 0.01
-    UpdateTransactionRequest:
+        event:
+          type: string
+          enum: [planner:done]
+        data:
+          type: object
+          properties:
+            status:
+              type: string
+              example: planned
+    SseEventAssistantInvoke:
       type: object
-      required:
-      - ticker
-      - transactionType
-      - quantity
-      - price
-      - currency
-      - transactionDate
-      description: Request to update an existing transaction
       properties:
-        ticker:
+        event:
           type: string
-          minLength: 1
-          examples:
-          - AAPL
-          maxLength: 10
-          description: Stock ticker symbol
-        transactionType:
-          $ref: "#/components/schemas/TransactionType"
+          enum: [assistant:invoke]
+        data:
+          type: object
+          properties:
+            retry:
+              type: integer
+              minimum: 0
+    SseEventProgress:
+      type: object
+      properties:
+        event:
           type: string
-          description: Type of transaction (BUY/SELL)
-        quantity:
-          type: number
-          examples:
-          - 100.0
-          description: Number of shares
-          minimum: 0.00010
-        price:
-          type: number
-          examples:
-          - 150.25
-          description: Price per share
-          minimum: 0.01
-        fees:
-          type: number
-          examples:
-          - 9.99
-          description: Transaction fees
-          minimum: 0.0
-        currency:
-          $ref: "#/components/schemas/Currency"
+          enum: [progress]
+        data:
+          type: object
+          properties:
+            action:
+              type: string
+              enum:
+                - searching_latest_news
+                - checking_reference_information
+                - retrieving_portfolio_summary
+                - retrieving_positions
+                - retrieving_position_details
+                - retrieving_transactions
+                - updating_transactions
+                - updating_market_data
+                - processing
+            subject:
+              type: string
+              description: Optional context string (e.g., ticker or query)
+    SseEventValidatorFail:
+      type: object
+      properties:
+        event:
           type: string
-          description: Transaction currency
-        transactionDate:
-          $ref: "#/components/schemas/LocalDate"
+          enum: [validator:fail]
+        data:
+          type: object
+          properties:
+            status:
+              type: string
+              example: invalid
+            issues:
+              type: integer
+              minimum: 1
+    SseEventValidatorOk:
+      type: object
+      properties:
+        event:
           type: string
-          examples:
-          - 2023-10-15
-          description: Date of the transaction
-        notes:
+          enum: [validator:ok]
+        data:
+          type: object
+          properties:
+            size:
+              type: integer
+              minimum: 0
+    SseEventJudgeDone:
+      type: object
+      properties:
+        event:
           type: string
-          examples:
-          - Updated investment
-          maxLength: 500
-          description: Optional notes about the transaction
-        isFractional:
-          type: boolean
-          description: Whether this is a fractional share transaction
-        fractionalMultiplier:
-          type: number
-          description: Multiplier for fractional shares
-        commissionCurrency:
-          $ref: "#/components/schemas/Currency"
+          enum: [judge:done]
+        data:
+          type: object
+          properties:
+            status:
+              type: string
+              enum: [CORRECT, INCORRECT, ERROR]
+    SseEventFinal:
+      type: object
+      properties:
+        event:
           type: string
-          description: Currency for commission fees
-  securitySchemes:
-    SecurityScheme:
-      type: openIdConnect
-      description: Authentication
-      openIdConnectUrl: http://localhost:52468/realms/quarkus/.well-known/openid-configuration
-tags:
-- name: Dividends
-  description: Dividend information and history operations
-- name: Portfolio
-  description: Portfolio summary and aggregated data operations
-- name: Positions
-  description: Position management and market data operations
-- name: Transactions
-  description: Transaction management operations
-paths:
-  /api/dividends/portfolio:
-    get:
-      summary: Get dividends for the entire portfolio
-      description: Retrieves all dividend payments for all active positions in the
-        portfolio within the specified date range
-      tags:
-      - Dividends
-      parameters:
-      - description: End date for dividend query (YYYY-MM-DD)
-        example: 2023-12-31
-        required: true
-        name: endDate
-        in: query
-        schema:
+          enum: [final]
+        data:
+          $ref: "#/components/schemas/InsightsResponse"
+    SseEventError:
+      type: object
+      properties:
+        event:
           type: string
-      - description: Start date for dividend query (YYYY-MM-DD)
-        example: 2023-01-01
-        required: true
-        name: startDate
-        in: query
-        schema:
-          type: string
-      responses:
-        "200":
-          description: Map of ticker to list of dividends for the portfolio
-          content:
-            application/json:
-              schema:
-                type: object
-        "400":
-          description: Invalid date parameters
-        "500":
-          description: Internal server error
-  /api/dividends/ticker/{ticker}:
-    get:
-      summary: Get dividends for a specific ticker
-      description: Retrieves all dividend payments for a specific stock ticker within
-        the specified date range
-      tags:
-      - Dividends
-      parameters:
-      - description: Stock ticker symbol
-        example: AAPL
-        required: true
-        name: ticker
-        in: path
-        schema:
-          type: string
-      - description: End date for dividend query (YYYY-MM-DD)
-        example: 2023-12-31
-        required: true
-        name: endDate
-        in: query
-        schema:
-          type: string
-      - description: Start date for dividend query (YYYY-MM-DD)
-        example: 2023-01-01
-        required: true
-        name: startDate
-        in: query
-        schema:
-          type: string
-      responses:
-        "200":
-          description: List of dividends for the ticker
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/DividendResponse"
-        "400":
-          description: Invalid ticker or date parameters
-        "500":
-          description: Internal server error
-  /api/portfolio/summary:
-    get:
-      summary: Get complete portfolio summary
-      description: Retrieves aggregated portfolio data including all positions (active
-        and inactive)
-      tags:
-      - Portfolio
-      responses:
-        "200":
-          description: Portfolio summary with aggregated financial data
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/PortfolioSummaryResponse"
-  /api/portfolio/summary/active:
-    get:
-      summary: Get active portfolio summary
-      description: Retrieves aggregated portfolio data including only active positions
-        (shares > 0)
-      tags:
-      - Portfolio
-      responses:
-        "200":
-          description: Active portfolio summary with aggregated financial data
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/PortfolioSummaryResponse"
-  /api/positions:
-    get:
-      summary: Get all positions
-      description: "Retrieves all positions in the portfolio, including inactive ones"
-      tags:
-      - Positions
-      responses:
-        "200":
-          description: List of all positions
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/PositionResponse"
-  /api/positions/active:
-    get:
-      summary: Get active positions
-      description: Retrieves only positions with shares greater than 0
-      tags:
-      - Positions
-      responses:
-        "200":
-          description: List of active positions
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/PositionResponse"
-  /api/positions/count:
-    get:
-      summary: Get total position count
-      description: Returns the total number of positions in the portfolio
-      tags:
-      - Positions
-      responses:
-        "200":
-          description: Total position count
-          content:
-            application/json:
-              schema:
-                type: integer
-                format: int64
-  /api/positions/count/active:
-    get:
-      summary: Get active position count
-      description: Returns the number of active positions (with shares > 0)
-      tags:
-      - Positions
-      responses:
-        "200":
-          description: Active position count
-          content:
-            application/json:
-              schema:
-                type: integer
-                format: int64
-  /api/positions/ticker/{ticker}:
-    get:
-      summary: Get position by ticker
-      description: Retrieves the position for a specific stock ticker
-      tags:
-      - Positions
-      parameters:
-      - description: Stock ticker symbol
-        example: AAPL
-        required: true
-        name: ticker
-        in: path
-        schema:
-          type: string
-      responses:
-        "200":
-          description: Position found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/PositionResponse"
-        "404":
-          description: Position not found
-  /api/positions/ticker/{ticker}/exists:
-    get:
-      summary: Check if position exists
-      description: Checks whether a position exists for the given ticker
-      tags:
-      - Positions
-      parameters:
-      - description: Stock ticker symbol
-        example: AAPL
-        required: true
-        name: ticker
-        in: path
-        schema:
-          type: string
-      responses:
-        "200":
-          description: Boolean indicating if position exists
-          content:
-            application/json:
-              schema:
-                type: boolean
-  /api/positions/ticker/{ticker}/price:
-    put:
-      summary: Update market price
-      description: Updates the current market price for a position
-      tags:
-      - Positions
-      parameters:
-      - description: Stock ticker symbol
-        example: AAPL
-        required: true
-        name: ticker
-        in: path
-        schema:
-          type: string
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/UpdateMarketDataRequest"
-        required: true
-      responses:
-        "200":
-          description: Market price updated successfully
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/PositionResponse"
-        "400":
-          description: Invalid price data or ticker not found
-  /api/positions/ticker/{ticker}/recalculate:
-    post:
-      summary: Recalculate position
-      description: Recalculates position data based on all transactions for the ticker
-      tags:
-      - Positions
-      parameters:
-      - description: Stock ticker symbol
-        example: AAPL
-        required: true
-        name: ticker
-        in: path
-        schema:
-          type: string
-      responses:
-        "200":
-          description: Position recalculated successfully
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/PositionResponse"
-        "404":
-          description: Position not found
-        "400":
-          description: Error during recalculation
-  /api/positions/{id}:
-    get:
-      summary: Get position by ID
-      description: Retrieves a specific position by its unique identifier
-      tags:
-      - Positions
-      parameters:
-      - description: Position ID
-        example: 550e8400-e29b-41d4-a716-446655440000
-        required: true
-        name: id
-        in: path
-        schema:
-          $ref: "#/components/schemas/UUID"
-      responses:
-        "200":
-          description: Position found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/PositionResponse"
-        "404":
-          description: Position not found
-  /api/transactions:
-    get:
-      summary: Get all transactions
-      description: Retrieves all transactions in the portfolio
-      tags:
-      - Transactions
-      responses:
-        "200":
-          description: List of transactions
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/TransactionResponse"
-    post:
-      summary: Create a new transaction
-      description: Creates a new buy or sell transaction for a stock
-      tags:
-      - Transactions
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/CreateTransactionRequest"
-        required: true
-      responses:
-        "201":
-          description: Transaction created successfully
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/TransactionResponse"
-        "400":
-          description: Invalid request data
-  /api/transactions/count:
-    get:
-      summary: Get total transaction count
-      description: Returns the total number of transactions in the portfolio
-      tags:
-      - Transactions
-      responses:
-        "200":
-          description: Total transaction count
-          content:
-            application/json:
-              schema:
-                type: integer
-                format: int64
-  /api/transactions/count/{ticker}:
-    get:
-      summary: Get transaction count by ticker
-      description: Returns the number of transactions for a specific stock ticker
-      tags:
-      - Transactions
-      parameters:
-      - description: Stock ticker symbol
-        example: AAPL
-        required: true
-        name: ticker
-        in: path
-        schema:
-          type: string
-      responses:
-        "200":
-          description: Transaction count for the ticker
-          content:
-            application/json:
-              schema:
-                type: integer
-                format: int64
-  /api/transactions/search:
-    get:
-      summary: Search transactions
-      description: Search transactions with optional filters
-      tags:
-      - Transactions
-      parameters:
-      - description: Filter from date (inclusive)
-        example: 2023-01-01
-        name: fromDate
-        in: query
-        schema:
-          $ref: "#/components/schemas/LocalDate"
-      - description: Filter by ticker symbol
-        example: AAPL
-        name: ticker
-        in: query
-        schema:
-          type: string
-      - description: Filter to date (inclusive)
-        example: 2023-12-31
-        name: toDate
-        in: query
-        schema:
-          $ref: "#/components/schemas/LocalDate"
-      - description: Filter by transaction type
-        name: type
-        in: query
-        schema:
-          $ref: "#/components/schemas/TransactionType"
-      responses:
-        "200":
-          description: List of matching transactions
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/TransactionResponse"
-  /api/transactions/ticker/{ticker}:
-    get:
-      summary: Get transactions by ticker
-      description: Retrieves all transactions for a specific stock ticker
-      tags:
-      - Transactions
-      parameters:
-      - description: Stock ticker symbol
-        example: AAPL
-        required: true
-        name: ticker
-        in: path
-        schema:
-          type: string
-      responses:
-        "200":
-          description: List of transactions for the ticker
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/TransactionResponse"
-  /api/transactions/{id}:
-    put:
-      summary: Update a transaction
-      description: Updates an existing transaction with new data
-      tags:
-      - Transactions
-      parameters:
-      - description: Transaction ID
-        example: 550e8400-e29b-41d4-a716-446655440000
-        required: true
-        name: id
-        in: path
-        schema:
-          $ref: "#/components/schemas/UUID"
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/UpdateTransactionRequest"
-        required: true
-      responses:
-        "200":
-          description: Transaction updated successfully
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/TransactionResponse"
-        "404":
-          description: Transaction not found
-        "400":
-          description: Invalid request data
-    get:
-      summary: Get transaction by ID
-      description: Retrieves a specific transaction by its unique identifier
-      tags:
-      - Transactions
-      parameters:
-      - description: Transaction ID
-        example: 550e8400-e29b-41d4-a716-446655440000
-        required: true
-        name: id
-        in: path
-        schema:
-          $ref: "#/components/schemas/UUID"
-      responses:
-        "200":
-          description: Transaction found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/TransactionResponse"
-        "404":
-          description: Transaction not found
-    delete:
-      summary: Delete a transaction
-      description: Permanently deletes a transaction from the portfolio
-      tags:
-      - Transactions
-      parameters:
-      - description: Transaction ID
-        example: 550e8400-e29b-41d4-a716-446655440000
-        required: true
-        name: id
-        in: path
-        schema:
-          $ref: "#/components/schemas/UUID"
-      responses:
-        "204":
-          description: Transaction deleted successfully
-        "404":
-          description: Transaction not found
-info:
-  title: Portfolio Management API
-  version: 1.0.0
-  description: "Reactive portfolio management system with CRUD operations for transactions,\
-    \ positions, and market data"
-  contact:
-    email: support@portfolio.com
-  license:
-    name: MIT
-servers:
-- url: http://localhost:8081
+          enum: [error]
+        data:
+          type: object
+          properties:
+            message:
+              type: string
+    SseEvent:
+      oneOf:
+        - $ref: "#/components/schemas/SseEventPlannerStart"
+        - $ref: "#/components/schemas/SseEventPlannerDone"
+        - $ref: "#/components/schemas/SseEventAssistantInvoke"
+        - $ref: "#/components/schemas/SseEventProgress"
+        - $ref: "#/components/schemas/SseEventValidatorFail"
+        - $ref: "#/components/schemas/SseEventValidatorOk"
+        - $ref: "#/components/schemas/SseEventJudgeDone"
+        - $ref: "#/components/schemas/SseEventFinal"
+        - $ref: "#/components/schemas/SseEventError"

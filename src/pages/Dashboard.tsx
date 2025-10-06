@@ -1,4 +1,5 @@
 import { PortfolioSummary } from '../components/PortfolioSummary';
+import { AISummaryBanner } from '../components/AISummaryBanner';
 
 export const Dashboard = () => {
   return (
@@ -9,7 +10,8 @@ export const Dashboard = () => {
           Overview of your portfolio performance and allocation
         </p>
       </div>
-      
+      <AISummaryBanner />
+
       <PortfolioSummary />
     </div>
   );

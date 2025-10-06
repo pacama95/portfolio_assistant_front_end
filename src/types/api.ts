@@ -198,3 +198,48 @@ export interface StockTypeResponse {
   stockTypes: StockTypeDto[];
   count: number;
 }
+
+// Insights API Types (based on OpenAPI spec)
+export interface InsightKeyNumber {
+  label: string;
+  value: number;
+  unit: string;
+}
+
+export type InsightType = 'performance' | 'alert' | 'risk' | 'opportunity';
+
+export interface Insight {
+  type: InsightType;
+  title: string;
+  summary: string;
+  details: string;
+  tickers: string[];
+  key_numbers: InsightKeyNumber[];
+  sources: string[];
+  priority: number;
+}
+
+export interface InsightsResponse {
+  version: string;
+  generated_at_utc: string;
+  insights: Insight[];
+}
+
+export interface InsightsRequest {
+  query: string;
+  thread_id?: string;
+}
+
+// SSE Event Types
+export interface SseProgressEvent {
+  action: 'searching_latest_news' | 'checking_reference_information' | 'retrieving_portfolio_summary' | 
+          'retrieving_positions' | 'retrieving_position_details' | 'retrieving_transactions' | 
+          'updating_transactions' | 'updating_market_data' | 'processing';
+  subject?: string;
+}
+
+// Health endpoint
+export interface HealthResponse {
+  ok: boolean;
+  service: string;
+}

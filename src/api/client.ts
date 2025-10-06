@@ -16,13 +16,17 @@ import type {
   CurrencyResponse,
   ExchangeResponse,
   StockTypeResponse,
+  InsightsRequest,
+  InsightsResponse,
+  HealthResponse,
 } from '../types/api';
 
 const TRANSACTIONS_API_BASE_URL = import.meta.env.VITE_TRANSACTIONS_API_URL || 'http://localhost:8081/api';
 const PORTFOLIO_API_BASE_URL = import.meta.env.VITE_PORTFOLIO_API_URL || 'http://localhost:8085/api';
-const LOGO_API_BASE_URL = import.meta.env.VITE_LOGO_API_URL || 'http://0.0.0.0:8085';
+const LOGO_API_BASE_URL = import.meta.env.VITE_LOGO_API_URL || 'http://0.0.0.0:8086';
 const SUGGESTIONS_API_BASE_URL = import.meta.env.VITE_SUGGESTIONS_API_URL || 'http://localhost:8090';
 const DIVIDENDS_API_BASE_URL = import.meta.env.VITE_DIVIDENDS_API_URL || 'http://localhost:8000';
+const INSIGHTS_API_BASE_URL = import.meta.env.VITE_INSIGHTS_API_URL || 'http://localhost:8089';
 
 class ApiError extends Error {
   public status: number;
@@ -64,6 +68,11 @@ async function transactionsApiRequest<T>(endpoint: string, options: RequestInit 
 
 async function portfolioApiRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   return apiRequest<T>(PORTFOLIO_API_BASE_URL, endpoint, options);
+}
+
+// Insights API helper
+async function insightsApiRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+  return apiRequest<T>(INSIGHTS_API_BASE_URL, endpoint, options);
 }
 
 interface CachedLogo {
@@ -315,6 +324,19 @@ async function fetchDividendData(params: DividendServiceParams): Promise<Dividen
 
 export const dividendsApi = {
   getDividends: fetchDividendData,
+};
+
+// Insights API
+export const insightsApi = {
+  // Health check
+  getHealth: (): Promise<HealthResponse> => insightsApiRequest('/health'),
+
+  // Non-streaming insights generation (final JSON)
+  postInsights: (request: InsightsRequest): Promise<InsightsResponse> =>
+    insightsApiRequest('/insights', {
+      method: 'POST',
+      body: JSON.stringify(request),
+    }),
 };
 
 export const portfolioApi = {
