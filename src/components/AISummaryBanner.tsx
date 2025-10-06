@@ -67,7 +67,7 @@ const formatTimeAgo = (timestamp: string): string => {
 
 export const AISummaryBanner: React.FC = () => {
   const [isExpanded, setIsExpanded] = useState(false);
-  const [isDismissed, setIsDismissed] = useState(false);
+  const [isMinimized, setIsMinimized] = useState(false);
   const [cachedInsights, setCachedInsights] = useState<InsightsResponse | null>(null);
   const { insights, isStreaming, progress, error, startStream, clearInsights, updates } = useInsightsStream();
   const [threadId, setThreadId] = useState<string | null>(null);
@@ -136,12 +136,31 @@ export const AISummaryBanner: React.FC = () => {
     localStorage.removeItem(CACHE_KEY);
     setCachedInsights(null);
     clearInsights();
-    setIsDismissed(false);
+    setIsMinimized(false);
     setIsExpanded(false);
     startStream('Generate today\'s portfolio insights', newId);
   };
 
-  if (isDismissed) return null;
+  // If minimized, show only the main icon button to reopen
+  if (isMinimized) {
+    return (
+      <div className="w-full max-w-6xl mx-auto mb-6">
+        <button
+          onClick={() => setIsMinimized(false)}
+          title="Open AI Portfolio Summary"
+          className="p-0 rounded-full shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-300"
+        >
+          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center">
+            {isStreaming ? (
+              <Loader2 className="w-5 h-5 text-white animate-spin" />
+            ) : (
+              <Sparkles className="w-5 h-5 text-white" />
+            )}
+          </div>
+        </button>
+      </div>
+    );
+  }
 
   // Note: keep banner visible during streaming, even before insights arrive
 
@@ -157,7 +176,7 @@ export const AISummaryBanner: React.FC = () => {
               <p className="text-sm text-gray-700">{error}</p>
             </div>
             <button
-              onClick={() => setIsDismissed(true)}
+              onClick={() => setIsMinimized(true)}
               className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md transition-colors flex-shrink-0"
             >
               <X className="w-4 h-4" />
@@ -272,7 +291,7 @@ export const AISummaryBanner: React.FC = () => {
               </button>
             )}
             <button
-              onClick={() => setIsDismissed(true)}
+              onClick={() => setIsMinimized(true)}
               className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
             >
               <X className="w-4 h-4" />
