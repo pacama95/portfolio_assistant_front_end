@@ -42,11 +42,8 @@ const colorMap = {
   },
 };
 
-const formatProgressAction = (action: string): string => {
-  return action
-    .split('_')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ');
+const formatProgressSummary = (summary: string): string => {
+  return summary;
 };
 
 const formatTimeAgo = (timestamp: string): string => {
@@ -236,8 +233,7 @@ export const AISummaryBanner: React.FC = () => {
                   <p>We are generating your portfolio insights. This may take a few seconds.</p>
                   {progress && (
                     <p className="mt-1 text-gray-600">
-                      Current step: {formatProgressAction(progress.action)}
-                      {progress.subject && <span className="text-purple-600 ml-1">({progress.subject})</span>}
+                      {formatProgressSummary(progress.summary)}
                     </p>
                   )}
                 </div>
@@ -251,18 +247,14 @@ export const AISummaryBanner: React.FC = () => {
                 <ul className="space-y-1">
                   {updates.slice(-12).map((u, idx) => (
                     <li key={idx} className="text-xs text-gray-700">
-                      <span className="font-medium text-purple-700">{u.event}</span>
-                      {u.event === 'progress' && u.data?.action && (
-                        <span className="ml-1">{formatProgressAction(u.data.action)}{u.data?.subject ? ` (${u.data.subject})` : ''}</span>
+                      {u.event === 'agent_event' && u.data?.summary && (
+                        <span className="text-gray-600">{formatProgressSummary(u.data.summary)}</span>
                       )}
                       {u.event === 'error' && (
                         <span className="ml-1 text-red-600">{u.data?.message || 'Stream error'}</span>
                       )}
-                      {u.event !== 'progress' && u.event !== 'error' && u.event !== 'final' && (
-                        <span className="ml-1 text-gray-600">{JSON.stringify(u.data)}</span>
-                      )}
                       {u.event === 'final' && (
-                        <span className="ml-1 text-green-700">Final insights ready</span>
+                        <span className="text-green-700">✓ Final insights ready</span>
                       )}
                     </li>
                   ))}

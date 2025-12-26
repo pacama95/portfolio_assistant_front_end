@@ -100,20 +100,31 @@ export function useInsightsStream(): UseInsightsStreamResult {
               try {
                 const parsed = JSON.parse(data);
 
-                // Use explicit event type when available
-                if (currentEvent === 'progress') {
-                  setProgress(parsed as SseProgressEvent);
-                  setUpdates((prev) => [...prev, { event: 'progress', data: parsed }]);
-                } else if (currentEvent === 'final') {
-                  setInsights(parsed as InsightsResponse);
-                  setIsStreaming(false);
-                  setUpdates((prev) => [...prev, { event: 'final', data: parsed }]);
+                // Handle new agent_event format
+                if (currentEvent === 'agent_event') {
+                  // Check if this is a validator event with final answer
+                  if (parsed.node === 'validator' && parsed.status === 'result' && parsed.meta?.final_answer) {
+                    try {
+                      const finalInsights = JSON.parse(parsed.meta.final_answer) as InsightsResponse;
+                      setInsights(finalInsights);
+                      setIsStreaming(false);
+                      setUpdates((prev) => [...prev, { event: 'final', data: finalInsights }]);
+                    } catch (e) {
+                      console.error('Failed to parse final_answer:', e);
+                      setError('Failed to parse final insights');
+                      setIsStreaming(false);
+                    }
+                  } else if (parsed.summary) {
+                    // Regular progress event with summary/step/ts
+                    setProgress(parsed as SseProgressEvent);
+                    setUpdates((prev) => [...prev, { event: 'agent_event', data: parsed }]);
+                  }
                 } else if (currentEvent === 'error') {
                   setError(parsed?.message || 'Unknown error from stream');
                   setIsStreaming(false);
                   setUpdates((prev) => [...prev, { event: 'error', data: parsed }]);
                 } else {
-                  // Fallback: infer from payload shape
+                  // Fallback for backwards compatibility
                   if (parsed?.action) {
                     setProgress(parsed as SseProgressEvent);
                     setUpdates((prev) => [...prev, { event: currentEvent || 'message', data: parsed }]);

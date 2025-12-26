@@ -232,10 +232,20 @@ export interface InsightsRequest {
 
 // SSE Event Types
 export interface SseProgressEvent {
-  action: 'searching_latest_news' | 'checking_reference_information' | 'retrieving_portfolio_summary' | 
-          'retrieving_positions' | 'retrieving_position_details' | 'retrieving_transactions' | 
-          'updating_transactions' | 'updating_market_data' | 'processing';
-  subject?: string;
+  summary: string;
+  step: string | null;
+  ts: number;
+}
+
+export interface SseValidatorEvent {
+  node: string;
+  status: string;
+  message: string;
+  ts: number;
+  meta?: {
+    final_answer?: string;
+    has_final_answer?: boolean;
+  };
 }
 
 // Health endpoint
