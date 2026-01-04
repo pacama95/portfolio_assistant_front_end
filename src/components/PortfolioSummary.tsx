@@ -49,6 +49,7 @@ interface ChartData {
   value: number;
   ticker: string;
   percentage: number;
+  [key: string]: string | number;
 }
 
 const ChartLegend = ({ data, colors }: { data: ChartData[], colors: string[] }) => {
@@ -125,8 +126,8 @@ const PortfolioChart = () => {
               ))}
             </Pie>
             <Tooltip 
-              formatter={(value: number, _name: string, props: any) => [
-                formatCurrency(value),
+              formatter={(value: number | undefined, _name: string | undefined, props: any) => [
+                formatCurrency(value ?? 0),
                 props.payload.ticker
               ]}
               labelFormatter={() => ''}

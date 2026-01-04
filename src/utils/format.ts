@@ -80,3 +80,28 @@ export const generateChartColors = (count: number): string[] => {
 
   return colors;
 };
+
+export const formatKeyNumber = (value: number, unit: string): string => {
+  // For percentages, show max 2 decimal places
+  if (unit === '%') {
+    return value % 1 === 0 ? value.toFixed(0) : value.toFixed(2);
+  }
+  
+  // For currency symbols, format as currency
+  if (unit === '$' || unit === '€' || unit === '£' || unit === '¥') {
+    return value % 1 === 0 ? value.toFixed(0) : value.toFixed(2);
+  }
+  
+  // For large numbers (> 1000), show max 2 decimal places
+  if (Math.abs(value) >= 1000) {
+    return value % 1 === 0 ? value.toFixed(0) : value.toFixed(2);
+  }
+  
+  // For small numbers (< 1), show max 4 decimal places
+  if (Math.abs(value) < 1 && value !== 0) {
+    return value.toFixed(4).replace(/\.?0+$/, '');
+  }
+  
+  // For other numbers, show max 2 decimal places
+  return value % 1 === 0 ? value.toFixed(0) : value.toFixed(2);
+};

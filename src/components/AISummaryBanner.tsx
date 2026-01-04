@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { TrendingUp, TrendingDown, AlertCircle, Sparkles, ChevronRight, X, Loader2, Lightbulb, RefreshCcw } from 'lucide-react';
 import { useInsightsStream } from '../hooks/useInsightsStream';
 import type { InsightsResponse } from '../types/api';
+import { formatKeyNumber } from '../utils/format';
 
 const CACHE_KEY = 'portfolio_insights_cache';
 const CACHE_DURATION = 30 * 60 * 1000; // 30 minutes in milliseconds
@@ -306,8 +307,8 @@ export const AISummaryBanner: React.FC = () => {
                     <Icon className={`w-5 h-5 ${colors.icon} flex-shrink-0 mt-0.5`} />
                     <div className="flex-1">
                       <h4 className="font-semibold text-gray-900 mb-1">{insight.title}</h4>
-                      <p className="text-sm text-gray-700 mb-2">{insight.summary}</p>
-                      <p className="text-xs text-gray-600">{insight.details}</p>
+                      <p className="text-base text-gray-700 mb-2">{insight.summary}</p>
+                      <p className="text-sm text-gray-600">{insight.details}</p>
                       
                       {/* Key Numbers */}
                       {insight.key_numbers && insight.key_numbers.length > 0 && (
@@ -316,7 +317,10 @@ export const AISummaryBanner: React.FC = () => {
                             <div key={idx} className="bg-white/50 rounded px-2 py-1">
                               <span className="text-xs text-gray-600">{keyNum.label}: </span>
                               <span className="text-sm font-semibold text-gray-900">
-                                {keyNum.value}{keyNum.unit}
+                                {keyNum.unit === '$' || keyNum.unit === '€' || keyNum.unit === '£' || keyNum.unit === '¥' 
+                                  ? `${keyNum.unit}${formatKeyNumber(keyNum.value, keyNum.unit)}`
+                                  : `${formatKeyNumber(keyNum.value, keyNum.unit)}${keyNum.unit}`
+                                }
                               </span>
                             </div>
                           ))}
