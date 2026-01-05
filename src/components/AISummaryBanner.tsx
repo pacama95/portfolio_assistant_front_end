@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { TrendingUp, TrendingDown, AlertCircle, Sparkles, ChevronRight, X, Loader2, Lightbulb, RefreshCcw } from 'lucide-react';
+import { TrendingUp, TrendingDown, AlertCircle, Sparkles, ChevronRight, X, Loader2, Lightbulb, RefreshCcw, CheckCircle2, Clock } from 'lucide-react';
 import { useInsightsStream } from '../hooks/useInsightsStream';
-import type { InsightsResponse } from '../types/api';
+import type { InsightsResponse, AgentProgressEvent } from '../types/api';
 import { formatKeyNumber } from '../utils/format';
+import { PhaseIndicator } from './PhaseIndicator';
 
 const CACHE_KEY = 'portfolio_insights_cache';
 const CACHE_DURATION = 30 * 60 * 1000; // 30 minutes in milliseconds
@@ -43,8 +44,26 @@ const colorMap = {
   },
 };
 
-const formatProgressSummary = (summary: string): string => {
-  return summary;
+const formatProgressMessage = (progress: AgentProgressEvent | null): string => {
+  if (!progress) return 'Initializing...';
+  return progress.message;
+};
+
+const getPhaseDisplayName = (phase: string): string => {
+  const phaseNames: Record<string, string> = {
+    initializing: 'Initializing',
+    data_fetching: 'Fetching Data',
+    refinement: 'Planning Insights',
+    cache_lookup: 'Checking Cache',
+    generation: 'Generating Insights',
+    evaluation: 'Quality Check',
+    cache_storage: 'Saving Cache',
+    composition: 'Composing Results',
+    validation: 'Validating',
+    complete: 'Complete',
+    error: 'Error'
+  };
+  return phaseNames[phase] || phase;
 };
 
 const formatTimeAgo = (timestamp: string): string => {
@@ -67,7 +86,7 @@ export const AISummaryBanner: React.FC = () => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
   const [cachedInsights, setCachedInsights] = useState<InsightsResponse | null>(null);
-  const { insights, isStreaming, progress, error, startStream, clearInsights, updates } = useInsightsStream();
+  const { insights, isStreaming, progress, error, startStream, clearInsights } = useInsightsStream();
   const [threadId, setThreadId] = useState<string | null>(null);
 
   const genThreadId = (): string => {
@@ -230,56 +249,91 @@ export const AISummaryBanner: React.FC = () => {
                   )}
                 </p>
               ) : (
-                <div className="text-sm text-gray-700 leading-relaxed">
-                  <p>We are generating your portfolio insights. This may take a few seconds.</p>
+                <div className="text-sm text-gray-700 leading-relaxed flex-1">
+                  <p className="font-medium mb-3">{formatProgressMessage(progress)}</p>
                   {progress && (
-                    <p className="mt-1 text-gray-600">
-                      {formatProgressSummary(progress.summary)}
-                    </p>
+                    <div className="mt-2 space-y-3">
+                      {/* Progress Bar */}
+                      <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                        <div 
+                          className="bg-gradient-to-r from-purple-500 to-blue-500 h-full transition-all duration-300 ease-out"
+                          style={{ width: `${progress.progress_percent}%` }}
+                        />
+                      </div>
+                      
+                      {/* Phase Indicator */}
+                      <PhaseIndicator 
+                        currentPhase={progress.phase}
+                        currentStep={progress.step_current}
+                        totalSteps={progress.step_total}
+                      />
+                      
+                      {/* Phase and Step Info */}
+                      <div className="flex items-center justify-between text-xs text-gray-600">
+                        <span className="flex items-center gap-1">
+                          <Clock className="w-3 h-3" />
+                          {getPhaseDisplayName(progress.phase)} ({progress.step_current}/{progress.step_total})
+                        </span>
+                        <span className="font-semibold">{Math.round(progress.progress_percent)}%</span>
+                      </div>
+                      
+                      {/* Phase-specific details */}
+                      {progress.details && (
+                        <div className="text-xs text-gray-600 space-y-1">
+                          {progress.details.tickers && progress.details.tickers.length > 0 && (
+                            <div className="flex items-center gap-1 flex-wrap">
+                              <span className="font-medium">Tickers:</span>
+                              {progress.details.tickers.map((ticker, idx) => (
+                                <span key={idx} className="bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">{ticker}</span>
+                              ))}
+                            </div>
+                          )}
+                          {progress.details.cache_hits !== undefined && progress.details.cache_misses !== undefined && (
+                            <div className="flex items-center gap-2">
+                              <span className="flex items-center gap-1">
+                                <CheckCircle2 className="w-3 h-3 text-green-600" />
+                                {progress.details.cache_hits} from cache
+                              </span>
+                              {progress.details.cache_misses > 0 && (
+                                <span className="text-orange-600">· Generating {progress.details.cache_misses} new</span>
+                              )}
+                            </div>
+                          )}
+                          {progress.details.generated !== undefined && progress.details.total_to_generate !== undefined && (
+                            <div>Generated: {progress.details.generated}/{progress.details.total_to_generate}</div>
+                          )}
+                          {progress.details.accepted !== undefined && (
+                            <div className="text-green-600">✓ {progress.details.accepted} insights accepted</div>
+                          )}
+                          {progress.details.rejected !== undefined && progress.details.rejected > 0 && (
+                            <div className="text-orange-600">⚠ {progress.details.rejected} rejected</div>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   )}
                 </div>
               )}
             </div>
-
-            {/* Live Progress Updates (only while streaming and before final insights) */}
-            {isStreaming && !hasInsights && (
-              <div className="mt-3 bg-white/60 border border-purple-100 rounded-lg p-3 max-h-40 overflow-auto">
-                <div className="text-xs font-semibold text-gray-700 mb-2">Live progress</div>
-                <ul className="space-y-1">
-                  {updates.slice(-12).map((u, idx) => (
-                    <li key={idx} className="text-xs text-gray-700">
-                      {u.event === 'agent_event' && u.data?.summary && (
-                        <span className="text-gray-600">{formatProgressSummary(u.data.summary)}</span>
-                      )}
-                      {u.event === 'error' && (
-                        <span className="ml-1 text-red-600">{u.data?.message || 'Stream error'}</span>
-                      )}
-                      {u.event === 'final' && (
-                        <span className="text-green-700">✓ Final insights ready</span>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
           </div>
 
           {/* Action Buttons */}
           <div className="flex items-center gap-2 flex-shrink-0">
             <button
               onClick={handleRefresh}
-              className="px-2 py-1.5 text-sm font-medium text-purple-700 hover:bg-purple-100 rounded-md transition-colors flex items-center gap-1"
+              disabled={isStreaming}
+              className="px-2 py-1.5 text-sm font-medium text-purple-700 hover:bg-purple-100 rounded-md transition-colors flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
               title="Refresh insights"
             >
-              <RefreshCcw className="w-4 h-4" />
+              <RefreshCcw className={`w-4 h-4 ${isStreaming ? 'animate-spin' : ''}`} />
               Refresh
             </button>
             {hasInsights && sortedInsights.length > 1 && (
               <button
                 onClick={() => setIsExpanded(!isExpanded)}
-                className="px-3 py-1.5 text-sm font-medium text-purple-700 hover:bg-purple-100 rounded-md transition-colors flex items-center gap-1"
+                className="px-3 py-1.5 text-sm font-medium text-purple-700 hover:bg-purple-100 rounded-md transition-colors flex items-center gap-1 whitespace-nowrap"
               >
-                {isExpanded ? 'Show Less' : 'View All Insights'}
+                {isExpanded ? 'Show Less' : `View All (${sortedInsights.length})`}
                 <ChevronRight className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
               </button>
             )}

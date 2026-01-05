@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import type { InsightsResponse, SseProgressEvent } from '../types/api';
+import type { InsightsResponse, AgentProgressEvent } from '../types/api';
 
 interface UseInsightsStreamResult {
   insights: InsightsResponse | null;
   isStreaming: boolean;
-  progress: SseProgressEvent | null;
+  progress: AgentProgressEvent | null;
   error: string | null;
   startStream: (query: string, threadId?: string) => void;
   clearInsights: () => void;
@@ -16,7 +16,7 @@ const INSIGHTS_API_BASE_URL = import.meta.env.VITE_INSIGHTS_API_URL || 'http://l
 export function useInsightsStream(): UseInsightsStreamResult {
   const [insights, setInsights] = useState<InsightsResponse | null>(null);
   const [isStreaming, setIsStreaming] = useState(false);
-  const [progress, setProgress] = useState<SseProgressEvent | null>(null);
+  const [progress, setProgress] = useState<AgentProgressEvent | null>(null);
   const [error, setError] = useState<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const [updates, setUpdates] = useState<{ event: string; data: any }[]>([]);
@@ -51,6 +51,7 @@ export function useInsightsStream(): UseInsightsStreamResult {
       body: JSON.stringify({
         query,
         thread_id: threadId,
+        use_case: 'portfolio_insights',
       }),
       signal: abortController.signal,
     })
@@ -100,10 +101,30 @@ export function useInsightsStream(): UseInsightsStreamResult {
               try {
                 const parsed = JSON.parse(data);
 
-                // Handle new agent_event format
                 if (currentEvent === 'agent_event') {
-                  // Check if this is a validator event with final answer
-                  if (parsed.node === 'validator' && parsed.status === 'result' && parsed.meta?.final_answer) {
+                  // Check if this event has the new structure with phase and progress_percent
+                  if (parsed.phase && parsed.progress_percent !== undefined) {
+                    const agentEvent = parsed as AgentProgressEvent;
+                    
+                    // Update progress state
+                    setProgress(agentEvent);
+                    setUpdates((prev) => [...prev, { event: 'agent_event', data: agentEvent }]);
+                    
+                    // Check for final answer in complete phase
+                    if (agentEvent.has_final_answer && agentEvent.final_answer) {
+                      setInsights(agentEvent.final_answer);
+                      setIsStreaming(false);
+                      setUpdates((prev) => [...prev, { event: 'final', data: agentEvent.final_answer }]);
+                    }
+                    
+                    // Handle error phase
+                    if (agentEvent.phase === 'error') {
+                      setError(agentEvent.message || 'Error during insight generation');
+                      setIsStreaming(false);
+                    }
+                  }
+                  // Legacy format compatibility: validator event with final answer
+                  else if (parsed.node === 'validator' && parsed.status === 'result' && parsed.meta?.final_answer) {
                     try {
                       const finalInsights = JSON.parse(parsed.meta.final_answer) as InsightsResponse;
                       setInsights(finalInsights);
@@ -114,9 +135,9 @@ export function useInsightsStream(): UseInsightsStreamResult {
                       setError('Failed to parse final insights');
                       setIsStreaming(false);
                     }
-                  } else if (parsed.summary) {
-                    // Regular progress event with summary/step/ts
-                    setProgress(parsed as SseProgressEvent);
+                  }
+                  // Legacy format: progress event with summary
+                  else if (parsed.summary) {
                     setUpdates((prev) => [...prev, { event: 'agent_event', data: parsed }]);
                   }
                 } else if (currentEvent === 'error') {
@@ -124,11 +145,7 @@ export function useInsightsStream(): UseInsightsStreamResult {
                   setIsStreaming(false);
                   setUpdates((prev) => [...prev, { event: 'error', data: parsed }]);
                 } else {
-                  // Fallback for backwards compatibility
-                  if (parsed?.action) {
-                    setProgress(parsed as SseProgressEvent);
-                    setUpdates((prev) => [...prev, { event: currentEvent || 'message', data: parsed }]);
-                  }
+                  // Fallback for other event types
                   if (parsed?.version && parsed?.insights) {
                     setInsights(parsed as InsightsResponse);
                     setIsStreaming(false);

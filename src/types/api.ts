@@ -230,7 +230,54 @@ export interface InsightsRequest {
   thread_id?: string;
 }
 
-// SSE Event Types
+// SSE Event Types (Version 3.0)
+export type AgentPhase = 
+  | "initializing" 
+  | "data_fetching" 
+  | "refinement" 
+  | "cache_lookup" 
+  | "generation" 
+  | "evaluation" 
+  | "cache_storage" 
+  | "composition" 
+  | "validation" 
+  | "complete" 
+  | "error";
+
+export type AgentStatus = "started" | "in_progress" | "completed" | "skipped" | "error";
+
+export interface ProgressEventDetails {
+  phase_name?: string;
+  positions_count?: number;
+  tickers?: string[];
+  total_tasks?: number;
+  cache_hits?: number;
+  cache_misses?: number;
+  generated?: number;
+  total_to_generate?: number;
+  evaluated?: number;
+  accepted?: number;
+  rejected?: number;
+  insights_count?: number;
+  insight_types?: string[];
+  final_count?: number;
+}
+
+export interface AgentProgressEvent {
+  phase: AgentPhase;
+  status: AgentStatus;
+  message: string;
+  progress_percent: number;
+  node: string;
+  step_current: number;
+  step_total: number;
+  timestamp: number;
+  details: ProgressEventDetails;
+  final_answer?: InsightsResponse;
+  has_final_answer?: boolean;
+}
+
+// Legacy types for backwards compatibility
 export interface SseProgressEvent {
   summary: string;
   step: string | null;
