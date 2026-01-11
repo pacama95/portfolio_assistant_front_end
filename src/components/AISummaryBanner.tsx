@@ -4,6 +4,7 @@ import { useInsightsStream } from '../hooks/useInsightsStream';
 import type { InsightsResponse, AgentProgressEvent } from '../types/api';
 import { formatKeyNumber } from '../utils/format';
 import { PhaseIndicator } from './PhaseIndicator';
+import { PipelineTracker } from './PipelineTracker';
 
 const CACHE_KEY = 'portfolio_insights_cache';
 const CACHE_DURATION = 30 * 60 * 1000; // 30 minutes in milliseconds
@@ -53,11 +54,8 @@ const getPhaseDisplayName = (phase: string): string => {
   const phaseNames: Record<string, string> = {
     initializing: 'Initializing',
     data_fetching: 'Fetching Data',
-    refinement: 'Planning Insights',
-    cache_lookup: 'Checking Cache',
-    generation: 'Generating Insights',
-    evaluation: 'Quality Check',
-    cache_storage: 'Saving Cache',
+    insight_pipeline: 'Processing Insights',
+    streaming_collector: 'Collecting Results',
     composition: 'Composing Results',
     validation: 'Validating',
     complete: 'Complete',
@@ -86,7 +84,7 @@ export const AISummaryBanner: React.FC = () => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
   const [cachedInsights, setCachedInsights] = useState<InsightsResponse | null>(null);
-  const { insights, isStreaming, progress, error, startStream, clearInsights } = useInsightsStream();
+  const { insights, streamingInsights, isStreaming, progress, error, startStream, clearInsights, pipelineStatus } = useInsightsStream();
   const [threadId, setThreadId] = useState<string | null>(null);
 
   const genThreadId = (): string => {
@@ -143,7 +141,10 @@ export const AISummaryBanner: React.FC = () => {
     }
   }, [insights]);
 
+  // Use streaming insights during generation, then final insights when complete
   const displayInsights = cachedInsights || insights;
+  const hasStreamingInsights = streamingInsights.length > 0;
+  const showStreamingInsights = isStreaming && hasStreamingInsights;
 
   const handleRefresh = () => {
     // Rotate thread id, invalidate cache, and re-stream
@@ -206,11 +207,15 @@ export const AISummaryBanner: React.FC = () => {
 
   const hasInsights = !!displayInsights && displayInsights.insights.length > 0;
   const sortedInsights = hasInsights
-    ? [...displayInsights!.insights].sort((a, b) => a.priority - b.priority)
+    ? [...displayInsights!.insights].sort((a, b) => (a.priority || 0) - (b.priority || 0))
     : [];
   const mainInsight = hasInsights ? sortedInsights[0] : null;
-  const MainIcon = mainInsight ? iconMap[mainInsight.type] : Loader2;
-  const mainColors = mainInsight ? colorMap[mainInsight.type] : { icon: 'text-purple-600' } as any;
+  
+  // For streaming insights, show them as they arrive
+  const streamingSortedInsights = showStreamingInsights ? [...streamingInsights] : [];
+  const mainInsightType = mainInsight?.type || mainInsight?.insight_type;
+  const MainIcon = mainInsightType ? iconMap[mainInsightType] : Loader2;
+  const mainColors = mainInsightType ? colorMap[mainInsightType] : { icon: 'text-purple-600' } as any;
 
   return (
     <div className="w-full max-w-6xl mx-auto mb-6">
@@ -280,7 +285,8 @@ export const AISummaryBanner: React.FC = () => {
                       {/* Phase-specific details */}
                       {progress.details && (
                         <div className="text-xs text-gray-600 space-y-1">
-                          {progress.details.tickers && progress.details.tickers.length > 0 && (
+                          {/* Data fetching phase - show tickers */}
+                          {progress.phase === 'data_fetching' && progress.details.tickers && progress.details.tickers.length > 0 && (
                             <div className="flex items-center gap-1 flex-wrap">
                               <span className="font-medium">Tickers:</span>
                               {progress.details.tickers.map((ticker, idx) => (
@@ -288,25 +294,44 @@ export const AISummaryBanner: React.FC = () => {
                               ))}
                             </div>
                           )}
-                          {progress.details.cache_hits !== undefined && progress.details.cache_misses !== undefined && (
-                            <div className="flex items-center gap-2">
-                              <span className="flex items-center gap-1">
-                                <CheckCircle2 className="w-3 h-3 text-green-600" />
-                                {progress.details.cache_hits} from cache
-                              </span>
-                              {progress.details.cache_misses > 0 && (
-                                <span className="text-orange-600">· Generating {progress.details.cache_misses} new</span>
+                          
+                          {/* Insight pipeline phase - show per-ticker progress with tracker */}
+                          {progress.phase === 'insight_pipeline' && (
+                            <div className="space-y-2">
+                              {progress.details.pipelines_total !== undefined && progress.details.pipelines_completed !== undefined && (
+                                <div className="flex items-center gap-2">
+                                  <span className="font-medium">
+                                    Progress: {progress.details.pipelines_completed}/{progress.details.pipelines_total} positions
+                                  </span>
+                                </div>
+                              )}
+                              {pipelineStatus.size > 0 && (
+                                <PipelineTracker 
+                                  pipelines={pipelineStatus}
+                                  totalExpected={progress.details.pipelines_total}
+                                />
                               )}
                             </div>
                           )}
-                          {progress.details.generated !== undefined && progress.details.total_to_generate !== undefined && (
-                            <div>Generated: {progress.details.generated}/{progress.details.total_to_generate}</div>
+                          
+                          {/* Streaming collector phase - show insights count */}
+                          {progress.phase === 'streaming_collector' && progress.details.insights_count !== undefined && (
+                            <div className="flex items-center gap-2">
+                              <span className="flex items-center gap-1">
+                                <CheckCircle2 className="w-3 h-3 text-green-600" />
+                                {progress.details.insights_count} insights collected
+                              </span>
+                            </div>
                           )}
-                          {progress.details.accepted !== undefined && (
-                            <div className="text-green-600">✓ {progress.details.accepted} insights accepted</div>
-                          )}
-                          {progress.details.rejected !== undefined && progress.details.rejected > 0 && (
-                            <div className="text-orange-600">⚠ {progress.details.rejected} rejected</div>
+                          
+                          {/* Composition phase - show insight types */}
+                          {progress.phase === 'composition' && progress.details.insight_types && progress.details.insight_types.length > 0 && (
+                            <div className="flex items-center gap-1 flex-wrap">
+                              <span className="font-medium">Types:</span>
+                              {progress.details.insight_types.map((type, idx) => (
+                                <span key={idx} className="bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded text-[10px]">{type}</span>
+                              ))}
+                            </div>
                           )}
                         </div>
                       )}
@@ -346,21 +371,29 @@ export const AISummaryBanner: React.FC = () => {
           </div>
         </div>
 
-        {/* Expanded Insights */}
-        {hasInsights && isExpanded && (
-          <div className="px-4 space-y-3">
-            {sortedInsights.map((insight, index) => {
-              const Icon = iconMap[insight.type];
-              const colors = colorMap[insight.type];
+        {/* Streaming Insights - Show progressively as they arrive */}
+        {showStreamingInsights && (
+          <div className="px-4 space-y-3 mt-4">
+            <div className="text-xs font-semibold text-gray-700 mb-2">
+              {streamingSortedInsights.length} insight{streamingSortedInsights.length !== 1 ? 's' : ''} ready
+            </div>
+            {streamingSortedInsights.map((insight, index) => {
+              const insightType = insight.insight_type as 'performance' | 'alert' | 'risk' | 'opportunity';
+              const Icon = iconMap[insightType] || Sparkles;
+              const colors = colorMap[insightType] || colorMap.performance;
               return (
                 <div
-                  key={index}
-                  className={`${colors.bg} rounded-lg p-4 border ${colors.border}`}
+                  key={insight.task_id || index}
+                  className={`${colors.bg} rounded-lg p-4 border ${colors.border} animate-fade-in`}
+                  style={{ animationDelay: `${index * 100}ms` }}
                 >
                   <div className="flex items-start gap-3">
                     <Icon className={`w-5 h-5 ${colors.icon} flex-shrink-0 mt-0.5`} />
                     <div className="flex-1">
-                      <h4 className="font-semibold text-gray-900 mb-1">{insight.title}</h4>
+                      <div className="flex items-center gap-2 mb-1">
+                        <h4 className="font-semibold text-gray-900">{insight.ticker}</h4>
+                        <span className="text-xs px-1.5 py-0.5 rounded bg-white/60 text-gray-600">{insightType}</span>
+                      </div>
                       <p className="text-base text-gray-700 mb-2">{insight.summary}</p>
                       <p className="text-sm text-gray-600">{insight.details}</p>
                       
@@ -371,10 +404,52 @@ export const AISummaryBanner: React.FC = () => {
                             <div key={idx} className="bg-white/50 rounded px-2 py-1">
                               <span className="text-xs text-gray-600">{keyNum.label}: </span>
                               <span className="text-sm font-semibold text-gray-900">
-                                {keyNum.unit === '$' || keyNum.unit === '€' || keyNum.unit === '£' || keyNum.unit === '¥' 
-                                  ? `${keyNum.unit}${formatKeyNumber(keyNum.value, keyNum.unit)}`
-                                  : `${formatKeyNumber(keyNum.value, keyNum.unit)}${keyNum.unit}`
-                                }
+                                {keyNum.value}{keyNum.change ? ` (${keyNum.change})` : ''}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Expanded Insights - Final results after completion */}
+        {hasInsights && isExpanded && !showStreamingInsights && (
+          <div className="px-4 space-y-3">
+            {sortedInsights.map((insight, index) => {
+              const insightType = insight.type || insight.insight_type || 'performance';
+              const Icon = iconMap[insightType];
+              const colors = colorMap[insightType];
+              return (
+                <div
+                  key={index}
+                  className={`${colors.bg} rounded-lg p-4 border ${colors.border}`}
+                >
+                  <div className="flex items-start gap-3">
+                    <Icon className={`w-5 h-5 ${colors.icon} flex-shrink-0 mt-0.5`} />
+                    <div className="flex-1">
+                      <h4 className="font-semibold text-gray-900 mb-1">{insight.title || insight.ticker || 'Insight'}</h4>
+                      <p className="text-base text-gray-700 mb-2">{insight.summary}</p>
+                      <p className="text-sm text-gray-600">{insight.details}</p>
+                      
+                      {/* Key Numbers */}
+                      {insight.key_numbers && insight.key_numbers.length > 0 && (
+                        <div className="mt-3 flex flex-wrap gap-3">
+                          {insight.key_numbers.map((keyNum, idx) => (
+                            <div key={idx} className="bg-white/50 rounded px-2 py-1">
+                              <span className="text-xs text-gray-600">{keyNum.label}: </span>
+                              <span className="text-sm font-semibold text-gray-900">
+                                {typeof keyNum.value === 'number' && keyNum.unit
+                                  ? (keyNum.unit === '$' || keyNum.unit === '€' || keyNum.unit === '£' || keyNum.unit === '¥'
+                                      ? `${keyNum.unit}${formatKeyNumber(keyNum.value, keyNum.unit)}`
+                                      : `${formatKeyNumber(keyNum.value, keyNum.unit)}${keyNum.unit}`)
+                                  : keyNum.value
+                                }{keyNum.change ? ` (${keyNum.change})` : ''}
                               </span>
                             </div>
                           ))}

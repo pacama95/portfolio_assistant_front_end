@@ -1,25 +1,35 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import type { InsightsResponse, AgentProgressEvent } from '../types/api';
+import type { InsightsResponse, AgentProgressEvent, PipelineStatus, InsightCompleteEvent, Insight } from '../types/api';
+
+interface PipelineItem {
+  ticker: string;
+  status: PipelineStatus | 'processing' | null;
+  timestamp?: number;
+}
 
 interface UseInsightsStreamResult {
   insights: InsightsResponse | null;
+  streamingInsights: Insight[];
   isStreaming: boolean;
   progress: AgentProgressEvent | null;
   error: string | null;
   startStream: (query: string, threadId?: string) => void;
   clearInsights: () => void;
   updates: { event: string; data: any }[];
+  pipelineStatus: Map<string, PipelineItem>;
 }
 
 const INSIGHTS_API_BASE_URL = import.meta.env.VITE_INSIGHTS_API_URL || 'http://localhost:8089';
 
 export function useInsightsStream(): UseInsightsStreamResult {
   const [insights, setInsights] = useState<InsightsResponse | null>(null);
+  const [streamingInsights, setStreamingInsights] = useState<Insight[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [progress, setProgress] = useState<AgentProgressEvent | null>(null);
   const [error, setError] = useState<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const [updates, setUpdates] = useState<{ event: string; data: any }[]>([]);
+  const [pipelineStatus, setPipelineStatus] = useState<Map<string, PipelineItem>>(new Map());
 
   const cleanup = useCallback(() => {
     if (abortControllerRef.current) {
@@ -37,6 +47,8 @@ export function useInsightsStream(): UseInsightsStreamResult {
     setProgress(null);
     setIsStreaming(true);
     setUpdates([]);
+    setPipelineStatus(new Map());
+    setStreamingInsights([]);
 
     // Use POST endpoint with fetch for SSE
     const abortController = new AbortController();
@@ -101,7 +113,23 @@ export function useInsightsStream(): UseInsightsStreamResult {
               try {
                 const parsed = JSON.parse(data);
 
-                if (currentEvent === 'agent_event') {
+                // Handle insight_complete events (v4.0 - Progressive Streaming)
+                if (currentEvent === 'insight_complete') {
+                  const insightEvent = parsed as InsightCompleteEvent;
+                  
+                  // Only display accepted or cached insights
+                  if ((insightEvent.status === 'accepted' || insightEvent.status === 'cached') && insightEvent.insight) {
+                    setStreamingInsights((prev) => [...prev, insightEvent.insight!]);
+                    setUpdates((prev) => [...prev, { event: 'insight_complete', data: insightEvent }]);
+                  }
+                  
+                  // Log rejected insights for debugging
+                  if (insightEvent.status === 'rejected') {
+                    console.warn(`Insight rejected for ${insightEvent.ticker}:`, insightEvent.verdict?.feedback);
+                  }
+                }
+                // Handle agent_event (progress updates)
+                else if (currentEvent === 'agent_event') {
                   // Check if this event has the new structure with phase and progress_percent
                   if (parsed.phase && parsed.progress_percent !== undefined) {
                     const agentEvent = parsed as AgentProgressEvent;
@@ -109,6 +137,36 @@ export function useInsightsStream(): UseInsightsStreamResult {
                     // Update progress state
                     setProgress(agentEvent);
                     setUpdates((prev) => [...prev, { event: 'agent_event', data: agentEvent }]);
+                    
+                    // Track per-ticker pipeline progress
+                    if (agentEvent.phase === 'insight_pipeline' && agentEvent.details?.ticker) {
+                      setPipelineStatus((prev) => {
+                        const newMap = new Map(prev);
+                        newMap.set(agentEvent.details.ticker!, {
+                          ticker: agentEvent.details.ticker!,
+                          status: agentEvent.details.status || 'processing',
+                          timestamp: agentEvent.timestamp
+                        });
+                        return newMap;
+                      });
+                    }
+                    
+                    // Initialize pipeline tracking when tickers are discovered
+                    if (agentEvent.phase === 'data_fetching' && agentEvent.details?.tickers) {
+                      setPipelineStatus((prev) => {
+                        const newMap = new Map(prev);
+                        agentEvent.details.tickers?.forEach(ticker => {
+                          if (!newMap.has(ticker)) {
+                            newMap.set(ticker, {
+                              ticker,
+                              status: null,
+                              timestamp: agentEvent.timestamp
+                            });
+                          }
+                        });
+                        return newMap;
+                      });
+                    }
                     
                     // Check for final answer in complete phase
                     if (agentEvent.has_final_answer && agentEvent.final_answer) {
@@ -172,8 +230,10 @@ export function useInsightsStream(): UseInsightsStreamResult {
 
   const clearInsights = useCallback(() => {
     setInsights(null);
+    setStreamingInsights([]);
     setProgress(null);
     setError(null);
+    setPipelineStatus(new Map());
   }, []);
 
   // Cleanup on unmount
@@ -185,11 +245,13 @@ export function useInsightsStream(): UseInsightsStreamResult {
 
   return {
     insights,
+    streamingInsights,
     isStreaming,
     progress,
     error,
     startStream,
     clearInsights,
     updates,
+    pipelineStatus,
   };
 }

@@ -17,11 +17,10 @@ interface PhaseInfo {
 const phases: PhaseInfo[] = [
   { key: 'initializing', label: 'Initialize', description: 'Starting up' },
   { key: 'data_fetching', label: 'Fetch Data', description: 'Loading portfolio' },
-  { key: 'refinement', label: 'Plan', description: 'Planning insights' },
-  { key: 'cache_lookup', label: 'Cache', description: 'Checking cache' },
-  { key: 'generation', label: 'Generate', description: 'Creating insights' },
-  { key: 'evaluation', label: 'Evaluate', description: 'Quality check' },
+  { key: 'insight_pipeline', label: 'Process', description: 'Generating insights' },
+  { key: 'streaming_collector', label: 'Collect', description: 'Gathering results' },
   { key: 'composition', label: 'Compose', description: 'Finalizing' },
+  { key: 'validation', label: 'Validate', description: 'Quality check' },
   { key: 'complete', label: 'Complete', description: 'Done!' },
 ];
 

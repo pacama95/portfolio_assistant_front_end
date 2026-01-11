@@ -202,21 +202,31 @@ export interface StockTypeResponse {
 // Insights API Types (based on OpenAPI spec)
 export interface InsightKeyNumber {
   label: string;
-  value: number;
-  unit: string;
+  value: number | string;
+  unit?: string;
+  change?: string;
 }
 
 export type InsightType = 'performance' | 'alert' | 'risk' | 'opportunity';
 
 export interface Insight {
-  type: InsightType;
-  title: string;
+  // v4.0 fields (from insight_complete events)
+  task_id?: string;
+  ticker?: string;
+  insight_type?: InsightType;
+  status?: string;
+  natural_content?: string;
+  use_case?: string;
+  // Legacy fields (from final_answer)
+  type?: InsightType;
+  title?: string;
+  tickers?: string[];
+  priority?: number;
+  // Common fields
   summary: string;
   details: string;
-  tickers: string[];
   key_numbers: InsightKeyNumber[];
   sources: string[];
-  priority: number;
 }
 
 export interface InsightsResponse {
@@ -230,15 +240,12 @@ export interface InsightsRequest {
   thread_id?: string;
 }
 
-// SSE Event Types (Version 3.0)
+// SSE Event Types (Version 4.0 - Per-Insight Pipeline Architecture)
 export type AgentPhase = 
   | "initializing" 
   | "data_fetching" 
-  | "refinement" 
-  | "cache_lookup" 
-  | "generation" 
-  | "evaluation" 
-  | "cache_storage" 
+  | "insight_pipeline" 
+  | "streaming_collector" 
   | "composition" 
   | "validation" 
   | "complete" 
@@ -246,18 +253,19 @@ export type AgentPhase =
 
 export type AgentStatus = "started" | "in_progress" | "completed" | "skipped" | "error";
 
+export type PipelineStatus = "cached" | "accepted" | "rejected" | "skipped";
+
 export interface ProgressEventDetails {
   phase_name?: string;
   positions_count?: number;
   tickers?: string[];
-  total_tasks?: number;
+  // Per-insight pipeline tracking
+  pipelines_total?: number;
+  pipelines_completed?: number;
+  ticker?: string;
+  status?: PipelineStatus;
+  // Collector/composition phase
   cache_hits?: number;
-  cache_misses?: number;
-  generated?: number;
-  total_to_generate?: number;
-  evaluated?: number;
-  accepted?: number;
-  rejected?: number;
   insights_count?: number;
   insight_types?: string[];
   final_count?: number;
@@ -275,6 +283,19 @@ export interface AgentProgressEvent {
   details: ProgressEventDetails;
   final_answer?: InsightsResponse;
   has_final_answer?: boolean;
+}
+
+// Insight Complete Event (v4.0 - Progressive Streaming)
+export interface InsightCompleteEvent {
+  ticker: string;
+  status: PipelineStatus;
+  insight: Insight | null;
+  verdict?: {
+    verdict: "ACCEPT" | "REJECT";
+    confidence_score: number;
+    feedback: string;
+  };
+  timestamp: number;
 }
 
 // Legacy types for backwards compatibility
